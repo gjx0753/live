@@ -1,0 +1,43 @@
+name: Fetch and Merge TV Sources
+
+on:
+  schedule:
+    - cron: '0 2,14 * * *' # 每天北京时间 10点和22点自动执行
+  workflow_dispatch: # 开启手动触发按钮
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Fetch and Merge URLs
+      run: |
+        echo "开始抓取合并..."
+        # 清空或创建 live.txt
+        > live.txt 
+        
+        # 抓取1 (GitHub网络畅通，直接抓)
+        echo "正在抓取 pllive.txt..."
+        curl -sL "https://raw.githubusercontent.com/jn950/live/main/tv/pllive.txt" >> live.txt
+        
+        # 抓取2 (GitHub网络支持IPv6，能直接通 koo666.online)
+        echo "正在抓取 koo666 50085..."
+        curl -sL "http://koo666.online:50085/sub?nFMW1pnS=txt" >> live.txt
+        
+        echo "正在抓取 koo666 51666..."
+        curl -sL "http://koo666.online:51666" >> live.txt
+        
+        echo "正在抓取 koo666 5908..."
+        curl -sL "http://koo666.online:5908" >> live.txt
+        
+        echo "抓取合并完成！"
+
+    - name: Commit and Push changes
+      run: |
+        git config --global user.name "GitHub Action"
+        git config --global user.email "action@github.com"
+        git add live.txt
+        git diff --staged --quiet || git commit -m "Auto update live.txt"
+        git push
