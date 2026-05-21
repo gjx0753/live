@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write # 赋予脚本写入仓库的最高权限
+  contents: write
 
 jobs:
   build:
@@ -17,48 +17,19 @@ jobs:
 
     - name: Fetch and Merge URLs
       run: |
-        echo "开始抓取合并..."
-        # 清空文件
-        > live.txt 
-        
-        # 抓取1
-        echo "正在抓取 pllive.txt..."
-        curl -sL "https://raw.githubusercontent.com/jn950/live/main/tv/pllive.txt" >> live.txt
-        echo "" >> live.txt # 加一个空行分隔
-        
-        # 抓取2
-        echo "正在抓取 koo666 50085..."
-        curl -sL "http://koo666.online:50085/sub?nFMW1pnS=txt" >> live.txt
+        echo "Starting fetch..."
+        > live.txt
+        curl -sL --connect-timeout 10 --max-time 30 "https://raw.githubusercontent.com/jn950/live/main/tv/pllive.txt" >> live.txt
         echo "" >> live.txt
-        
-        # 抓取3
-        echo "正在抓取 koo666 51666..."
-        curl -sL "http://koo666.online:51666" >> live.txt
+        curl -sL --connect-timeout 5 --max-time 10 -k "http://koo666.online:50085/sub?nFMW1pnS=txt" >> live.txt
         echo "" >> live.txt
-        
-        # 抓取4
-        echo "正在抓取 koo666 5908..."
-        curl -sL "http://koo666.online:5908" >> live.txt
-        
-        echo "抓取合并完成！"
+        curl -sL --connect-timeout 5 --max-time 10 -k "http://koo666.online:51666" >> live.txt
+        echo "" >> live.txt
+        curl -sL --connect-timeout 5 --max-time 10 -k "http://koo666.online:5908" >> live.txt
 
     - name: Commit and Push changes
       run: |
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
         git add live.txt
-        # 只有文件有变化时才提交
-         - name: Commit and Push changes
-      run: |
-        git config --global user.name "GitHub Action"
-        git config --global user.email "action@github.com"
-        git add live.txt
-        git diff --staged --quiet || git commit -m "Auto update live.txt"
-        git push
--name：提交并推送更改
-运行：|
-git config --global user.name "GitHub Action"
-git config --global user.email "action@github.com"
-git add live.txt
-git diff --staged --quiet || git commit -m "Auto update live.txt"
-推送至 git 仓库
+        git diff --staged --quiet || git commit -m "Auto upda
