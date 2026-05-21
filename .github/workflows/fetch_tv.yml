@@ -19,13 +19,27 @@ jobs:
       run: |
         echo "Starting fetch..."
         > live.txt
-        curl -sL --connect-timeout 10 --max-time 30 "https://raw.githubusercontent.com/jn950/live/main/tv/pllive.txt" >> live.txt
+        
+        # 抓取1 (这个肯定能通)
+        echo "Fetching pllive.txt..."
+        curl -sL --connect-timeout 10 --max-time 30 "https://raw.githubusercontent.com/jn950/live/main/tv/pllive.txt" >> live.txt || true
         echo "" >> live.txt
-        curl -sL --connect-timeout 5 --max-time 10 -k "http://koo666.online:50085/sub?nFMW1pnS=txt" >> live.txt
+        
+        # 抓取2 (国内家宽，GitHub连不上，加上 || true 防止崩溃)
+        echo "Fetching koo666 50085..."
+        curl -sL --connect-timeout 5 --max-time 10 -k "http://koo666.online:50085/sub?nFMW1pnS=txt" >> live.txt || true
         echo "" >> live.txt
-        curl -sL --connect-timeout 5 --max-time 10 -k "http://koo666.online:51666" >> live.txt
+        
+        # 抓取3
+        echo "Fetching koo666 51666..."
+        curl -sL --connect-timeout 5 --max-time 10 -k "http://koo666.online:51666" >> live.txt || true
         echo "" >> live.txt
-        curl -sL --connect-timeout 5 --max-time 10 -k "http://koo666.online:5908" >> live.txt
+        
+        # 抓取4
+        echo "Fetching koo666 5908..."
+        curl -sL --connect-timeout 5 --max-time 10 -k "http://koo666.online:5908" >> live.txt || true
+        
+        echo "Fetch completed!"
 
     - name: Commit and Push changes
       run: |
