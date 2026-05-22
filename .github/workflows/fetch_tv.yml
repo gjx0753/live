@@ -1,133 +1,50 @@
-<?php
+name: Fetch and Merge TV Sources
 
-/**
- * 从多个URL获取txt/m3u内容，自动将m3u转为txt格式，合并写入本地文件
- * 强制设置目录权限为0755，文件权限为0644
- */
-function mergeAndConvertUrlsToFile(array $urlList, string $targetFile): void {
-    $total = count($urlList);
-    
-    // 1. 处理目录和权限
-    $targetDir = dirname($targetFile);
-    if (!is_dir($targetDir)) {
-        if (!mkdir($targetDir, 0755, true)) {
-            echo "错误：无法创建目标文件夹 {$targetDir}\n";
-            return;
-        }
-        @chmod($targetDir, 0755);
-    }
+on:
+  schedule:
+    - cron: '0 2,14 * * *'
+  workflow_dispatch:
 
-    if (file_exists($targetFile)) {
-        unlink($targetFile); 
-    }
+permissions:
+  contents: write
 
-    $tgt = fopen($targetFile, 'w');
-    if (!$tgt) {
-        echo "错误：无法创建/打开目标文件 {$targetFile}\n";
-        return;
-    }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-    foreach ($urlList as $index => $url) {
-        $current = $index + 1;
-        echo "({$current}/{$total}) 正在获取: {$url} ...\n";
-
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); 
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); 
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);          // 30秒超时
-        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'); 
+    - name: Fetch and Merge URLs
+      run: |
+        echo "Starting fetch..."
+        > live.txt
         
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        # 抓取1
+        echo "Fetching pllive.txt..."
+        curl -sL --connect-timeout 10 --max-time 30 "https://raw.githubusercontent.com/jn950/live/main/tv/pllive.txt" >> live.txt || true
+        echo "" >> live.txt
+        
+        # 抓取2
+        echo "Fetching koo666 50085..."
+        curl -sL --connect-timeout 5 --max-time 10 -k "http://koo666.online:50085/sub?nFMW1pnS=txt" >> live.txt || true
+        echo "" >> live.txt
+        
+        # 抓取3
+        echo "Fetching koo666 51666..."
+        curl -sL --connect-timeout 5 --max-time 10 -k "http://koo666.online:51666" >> live.txt || true
+        echo "" >> live.txt
+        
+        # 抓取4
+        echo "Fetching koo666 5908..."
+        curl -sL --connect-timeout 5 --max-time 10 -k "http://koo666.online:5908" >> live.txt || true
+        
+        echo "Fetch completed!"
 
-        $content = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlError = curl_error($ch);
-        curl_close($ch);
-
-        if ($content === false || $httpCode >= 400) {
-            $errorMsg = !empty($curlError) ? $curlError : "HTTP状态码: {$httpCode}";
-            echo "    ✗ 错误: 无法获取内容 ({$errorMsg})，已跳过。\n";
-            continue;
-        }
-
-        // ==========================================
-        // 核心升级：自动识别并转换 m3u 为 txt 格式
-        // ==========================================
-        $convertedContent = convertM3uToTxt($content);
-
-        // 写入本地文件
-        $writeResult = fwrite($tgt, $convertedContent);
-        if ($writeResult === false) {
-            echo "    ✗ 错误: 写入文件失败。\n";
-        } else {
-            echo "    ✓ 成功追加该链接内容 (写入 {$writeResult} 字节)\n";
-        }
-    }
-
-    fclose($tgt);
-    
-    @chmod($targetFile, 0644);
-    echo "\n全部处理完成！结果已保存至 {$targetFile}\n";
-}
-
-
-/**
- * 将 m3u 格式内容转换为 txt 格式
- * m3u 格式：#EXTINF:-1,频道名\n播放链接
- * txt 格式：频道名,播放链接
- */
-function convertM3uToTxt(string $content): string {
-    // 如果内容里没有 #EXTINF，说明本来就是 txt 格式，直接返回
-    if (strpos($content, '#EXTINF') === false) {
-        return $content;
-    }
-
-    $lines = explode("\n", $content);
-    $txtLines = [];
-    $currentChannelName = '';
-
-    foreach ($lines as $line) {
-        $line = trim($line);
-        if (empty($line)) continue;
-
-        // 匹配频道名，例如：#EXTINF:-1 group-title="央视",CCTV-1
-        if (stripos($line, '#EXTINF') === 0) {
-            // 提取最后一个逗号后面的内容作为频道名
-            $lastCommaPos = strrpos($line, ',');
-            if ($lastCommaPos !== false) {
-                $currentChannelName = trim(substr($line, $lastCommaPos + 1));
-            }
-        } 
-        // 如果不是注释行（以#开头的是注释），且是一个链接（包含http）
-        elseif (strpos($line, 'http') === 0) {
-            if (!empty($currentChannelName)) {
-                // 组合成 txt 标准格式：频道名,链接
-                $txtLines[] = $currentChannelName . ',' . $line;
-                $currentChannelName = ''; // 重置，准备下一组
-            } else {
-                // 如果没有抓到频道名，只有链接，也保留下来
-                $txtLines[] = $line;
-            }
-        }
-    }
-
-    // 将转换后的行用换行符拼起来
-    return implode("\n", $txtLines) . "\n";
-}
-
-
-// ================= 使用示例 =================
-
-$urlsToMerge = [
-    "https://raw.githubusercontent.com/jn950/live/main/tv/pllive.txt", 
-    "https://raw.githubusercontent.com/gjx0753/live/main/live.txt"      // 你GitHub合并后的直链
-];
-
-// 【修改】这里改成了你要求的 b.txt
-$destinationFile = './b.txt'; 
-
-mergeAndConvertUrlsToFile($urlsToMerge, $destinationFile);
-
-?>
+    - name: Commit and Push changes
+      run: |
+        git config --global user.name "GitHub Action"
+        git config --global user.email "action@github.com"
+        git add live.txt
+        git diff --staged --quiet || git commit -m "Auto update live.txt"
+        git push
