@@ -22,7 +22,7 @@ jobs:
         TEMP_RAW="raw_merged.txt"
         > "$TEMP_RAW"
 
-        # 定义源列表（格式必须为：名称|URL）
+        # 定义源列表（格式：名称|URL）
         SOURCES=(
           "pllive|https://raw.githubusercontent.com/jn950/live/main/tv/pllive.txt"
           "wangziduoqing|http://wangziduoqing.com/yuan/zb.txt"
@@ -50,37 +50,35 @@ jobs:
         done
 
         echo "====== Step 2: Converting M3U to TXT & Cleaning ======"
-        # 将 M3U 转换为 TXT 格式，并兼容已经是 TXT 格式的内容
+        # 1. 强制统一换行符为 Unix 格式 (LF)，杀死导致 URL 失效的 \r 字符！
+        sed -i 's/\r$//' "$TEMP_RAW"
+
+        # 2. 将 M3U 转换为 TXT 格式，并兼容各种 TXT 格式
         awk '
         /^#EXTINF/ {
-            # 提取 #EXTINF 行中最后一个逗号后面的内容作为频道名
             n = split($0, a, ",")
             channel_name = a[n]
-            # 去除首尾空格
             gsub(/^[ \t]+|[ \t]+$/, "", channel_name)
-            getline # 读取下一行，即 URL 行
+            getline
             url = $0
             gsub(/^[ \t]+|[ \t]+$/, "", url)
-            # 确保 URL 行不是另一个标签
             if (url ~ /^http/ && channel_name != "") {
                 print channel_name "," url
             }
             next
         }
-        /^#EXTM3U/ { next } # 忽略文件头
-        /^#/ { next }       # 忽略其他杂项标签
+        /^#EXTM3U/ { next }
+        /^#/ { next }
         {
-            # 处理原本就是 TXT 格式的行 (频道名,URL 或 频道名 URL)
             line = $0
             gsub(/^[ \t]+|[ \t]+$/, "", line)
             if (line ~ /^http/) {
-                # 如果只有 URL 没有名字，暂时命名为 Unknown
                 print "Unknown," line
             } else if (line ~ /,/) {
-                # 含有逗号，认为是标准的 名称,URL 格式直接输出
+                # 有逗号，认为是标准 TXT，直接放行
                 print line
             } else if (line ~ /[ \t]/) {
-                # 含有空格，认为是空格分隔格式，将第一个空格替换为逗号
+                # 是空格分隔的 TXT，只将第一个空格替换为逗号，保留频道名中的其余空格
                 sub(/[ \t]+/, ",", line)
                 print line
             }
@@ -97,14 +95,17 @@ jobs:
         rm -f "$TEMP_RAW"
 
         echo "====== Step 3: Validating Streams (Concurrency: 20) ======"
-        VALID_FILE="live.txt"
-        > "$VALID_FILE"
+        mkdir -p valid_results
+        rm -f valid_results/*
 
-        # 创建并发检测脚本
+        # 创建并发检测脚本 (修复并发写入冲突)
         cat << 'SCRIPT' > validate.sh
 #!/bin/bash
 LINE="$1"
-# 提取 URL (兼容 "名称,URL" 和 "名称 URL" 格式，提取第一个 http 开始到行末的内容，避免特殊符号截断)
+# 每个进程生成独立的临时文件，用 $BASHPID 避免并发冲突
+RESULT_FILE="valid_results/$BASHPID.tmp"
+
+# 提取 URL：从第一个 http 开始截取到行末，避免频道名特殊符号干扰
 URL=$(echo "$LINE" | sed 's/.*\(https\?:\/\/\)/\1/')
 if [ -z "$URL" ]; then
   exit 1
@@ -115,19 +116,24 @@ CONTENT_TYPE=$(curl -sS -m 8 -r 0-500000 -o /dev/null -w "%{content_type}" -L "$
 
 # 检查 Content-Type 是否为音视频流或二进制流
 if [[ "$CONTENT_TYPE" =~ (video|audio|octet-stream|mpegurl|mp2t) ]]; then
-  echo "$LINE" >> live.txt
+  # 写入进程独立的临时文件，不加锁，极速！
+  echo "$LINE" > "$RESULT_FILE"
 fi
 SCRIPT
         chmod +x validate.sh
 
-        # 使用 xargs 实现多线程并发检测 (P 20 表示并发数 20)
+        # 使用 xargs 实现多线程并发检测
         cat cleaned.txt | xargs -P 20 -I {} bash validate.sh "{}"
 
-        VALID_COUNT=$(wc -l < "$VALID_FILE")
+        # 合并所有有效结果
+        cat valid_results/*.tmp > live.txt 2>/dev/null || true
+        VALID_COUNT=$(wc -l < live.txt 2>/dev/null || echo 0)
+        
         echo "====== Done! Valid streams: $VALID_COUNT / $TOTAL_RAW ======"
 
         # 清理临时文件
         rm -f cleaned.txt validate.sh
+        rm -rf valid_results
 
     - name: Commit and Push changes
       run: |
