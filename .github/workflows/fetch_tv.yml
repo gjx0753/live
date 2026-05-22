@@ -1,5 +1,4 @@
 name: Fetch and Validate TV Sources
-
 on:
   schedule:
     - cron: '0 0,6,12,18 * * *'
