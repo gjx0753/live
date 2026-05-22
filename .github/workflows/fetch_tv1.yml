@@ -1,4 +1,4 @@
-name: Fetch and Merge TV Sources
+name: Fetch and Merge TV Sources m3u & txt
 
 on:
   schedule:
