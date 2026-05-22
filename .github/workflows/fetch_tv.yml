@@ -21,7 +21,6 @@ jobs:
         TEMP_RAW="raw_merged.txt"
         > "$TEMP_RAW"
 
-        # 定义源列表
         SOURCES=(
           "pllive|https://raw.githubusercontent.com/jn950/live/main/tv/pllive.txt"
           "wangziduoqing|http://wangziduoqing.com/yuan/zb.txt"
@@ -35,8 +34,7 @@ jobs:
           URL="${SOURCE##*|}"
           echo ">>> Fetching: $NAME"
           
-          HTTP_CODE=$(curl -sL --connect-timeout 10 --max-time 30 \
-            -w "%{http_code}" -o "${NAME}.tmp" "$URL") || true
+          HTTP_CODE=$(curl -sL --connect-timeout 10 --max-time 30 -w "%{http_code}" -o "${NAME}.tmp" "$URL") || true
           
           if [ -s "${NAME}.tmp" ] && [ "$HTTP_CODE" = "200" ]; then
             LINES=$(wc -l < "${NAME}.tmp")
@@ -48,43 +46,19 @@ jobs:
           rm -f "${NAME}.tmp"
         done
 
-        echo "====== Step 2: Converting M3U to TXT & Cleaning ======"
-        # 强制统一换行符 (杀死 \r)
+        echo "====== Step 2: Converting & Cleaning ======"
+        # 杀死 \r 换行符
         sed -i 's/\r$//' "$TEMP_RAW"
-
-        # 将 M3U 转换为 TXT，兼容各种 TXT
-        awk '
-        /^#EXTINF/ {
-            n = split($0, a, ",")
-            channel_name = a[n]
-            gsub(/^[ \t]+|[ \t]+$/, "", channel_name)
-            getline
-            url = $0
-            gsub(/^[ \t]+|[ \t]+$/, "", url)
-            if (url ~ /^http/ && channel_name != "") {
-                print channel_name "," url
-            }
-            next
-        }
-        /^#EXTM3U/ { next }
-        /^#/ { next }
-        {
-            line = $0
-            gsub(/^[ \t]+|[ \t]+$/, "", line)
-            if (line ~ /^http/) {
-                print "Unknown," line
-            } else if (line ~ /,/) {
-                print line
-            } else if (line ~ /[ \t]/) {
-                sub(/[ \t]+/, ",", line)
-                print line
-            }
-        }
-        ' "$TEMP_RAW" > "cleaned.txt"
+        
+        # 赋予脚本执行权限
+        chmod +x .github/scripts/validate.sh
+        
+        # 调用脚本进行 M3U 转 TXT
+        bash .github/scripts/validate.sh "$TEMP_RAW" "cleaned.txt"
 
         # 去空行、去重
         sed -i '/^\s*$/d' "cleaned.txt"
-        awk '!seen[$0]++' "cleaned.txt" > "temp_uniq.txt"
+        awk "!seen[\$0]++" "cleaned.txt" > "temp_uniq.txt"
         mv "temp_uniq.txt" "cleaned.txt"
 
         TOTAL_RAW=$(wc -l < "cleaned.txt")
@@ -95,11 +69,8 @@ jobs:
         mkdir -p valid_results
         rm -f valid_results/*
 
-        # 赋予独立脚本执行权限
-        chmod +x .github/scripts/validate.sh
-
-        # 使用 xargs 多线程并发调用独立脚本
-        cat cleaned.txt | xargs -P 20 -I {} bash .github/scripts/validate.sh "{}"
+        # 并发调用脚本进行验证
+        cat cleaned.txt | xargs -P 20 -I {} bash .github/scripts/validate.sh "ignored" "ignored" "{}" "valid_results/\$BASHPID.tmp"
 
         # 合并有效结果
         cat valid_results/*.tmp > live.txt 2>/dev/null || true
@@ -107,7 +78,6 @@ jobs:
         
         echo "====== Done! Valid streams: $VALID_COUNT / $TOTAL_RAW ======"
 
-        # 清理
         rm -f cleaned.txt
         rm -rf valid_results
 
