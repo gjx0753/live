@@ -8,7 +8,6 @@ OUTPUT_FILE="$2"
 
 awk '
 /^#EXTINF/ {
-    # 提取最后一个逗号后的内容作为频道名
     n = split($0, a, ",")
     channel_name = a[n]
     gsub(/^[ \t]+|[ \t]+$/, "", channel_name)
@@ -42,16 +41,13 @@ awk '
 LINE="$3"
 RESULT_FILE="$4"
 
-# 提取 URL
 URL=$(echo "$LINE" | sed 's/.*\(https\?:\/\/\)/\1/')
 if [ -z "$URL" ]; then
   exit 1
 fi
 
-# 尝试下载前 500KB 数据，超时 8 秒
 CONTENT_TYPE=$(curl -sS -m 8 -r 0-500000 -o /dev/null -w "%{content_type}" -L "$URL" 2>/dev/null)
 
-# 检查是否为音视频流
 if [[ "$CONTENT_TYPE" =~ (video|audio|octet-stream|mpegurl|mp2t) ]]; then
   echo "$LINE" > "$RESULT_FILE"
 fi
