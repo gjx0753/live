@@ -2,7 +2,6 @@ name: Fetch and Validate TV Sources
 
 on:
   schedule:
-    # 每天执行 4 次，UTC 0:00, 6:00, 12:00, 18:00 (对应北京 8:00, 14:00, 20:00, 2:00)
     - cron: '0 0,6,12,18 * * *'
   workflow_dispatch:
 
@@ -16,13 +15,19 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Clean workflow file encoding
+      run: |
+        # 强制将工作流自身转换为 Unix 格式 (LF换行)，防止 Windows 复制粘贴导致的 CRLF 语法报错
+        sed -i 's/\r$//' .github/workflows/fetch_tv.yml
+
     - name: Fetch, Validate and Merge URLs
+      shell: bash
       run: |
         echo "====== Step 1: Fetching Sources ======"
         TEMP_RAW="raw_merged.txt"
         > "$TEMP_RAW"
 
-        # 定义源列表（格式：名称|URL）
+        # 定义源列表
         SOURCES=(
           "pllive|https://raw.githubusercontent.com/jn950/live/main/tv/pllive.txt"
           "wangziduoqing|http://wangziduoqing.com/yuan/zb.txt"
@@ -50,10 +55,10 @@ jobs:
         done
 
         echo "====== Step 2: Converting M3U to TXT & Cleaning ======"
-        # 1. 强制统一换行符为 Unix 格式 (LF)，杀死导致 URL 失效的 \r 字符！
+        # 强制统一换行符，杀死导致 URL 失效的 \r 字符
         sed -i 's/\r$//' "$TEMP_RAW"
 
-        # 2. 将 M3U 转换为 TXT 格式，并兼容各种 TXT 格式
+        # 将 M3U 转换为 TXT，兼容各种 TXT
         awk '
         /^#EXTINF/ {
             n = split($0, a, ",")
@@ -75,17 +80,15 @@ jobs:
             if (line ~ /^http/) {
                 print "Unknown," line
             } else if (line ~ /,/) {
-                # 有逗号，认为是标准 TXT，直接放行
                 print line
             } else if (line ~ /[ \t]/) {
-                # 是空格分隔的 TXT，只将第一个空格替换为逗号，保留频道名中的其余空格
                 sub(/[ \t]+/, ",", line)
                 print line
             }
         }
         ' "$TEMP_RAW" > "cleaned.txt"
 
-        # 去空行、去重（保持顺序）
+        # 去空行、去重
         sed -i '/^\s*$/d' "cleaned.txt"
         awk '!seen[$0]++' "cleaned.txt" > "temp_uniq.txt"
         mv "temp_uniq.txt" "cleaned.txt"
@@ -98,40 +101,34 @@ jobs:
         mkdir -p valid_results
         rm -f valid_results/*
 
-        # 创建并发检测脚本 (修复并发写入冲突)
         cat << 'SCRIPT' > validate.sh
 #!/bin/bash
 LINE="$1"
-# 每个进程生成独立的临时文件，用 $BASHPID 避免并发冲突
 RESULT_FILE="valid_results/$BASHPID.tmp"
 
-# 提取 URL：从第一个 http 开始截取到行末，避免频道名特殊符号干扰
 URL=$(echo "$LINE" | sed 's/.*\(https\?:\/\/\)/\1/')
 if [ -z "$URL" ]; then
   exit 1
 fi
 
-# 尝试下载前 500KB 数据，超时 8 秒
 CONTENT_TYPE=$(curl -sS -m 8 -r 0-500000 -o /dev/null -w "%{content_type}" -L "$URL" 2>/dev/null)
 
-# 检查 Content-Type 是否为音视频流或二进制流
 if [[ "$CONTENT_TYPE" =~ (video|audio|octet-stream|mpegurl|mp2t) ]]; then
-  # 写入进程独立的临时文件，不加锁，极速！
   echo "$LINE" > "$RESULT_FILE"
 fi
 SCRIPT
         chmod +x validate.sh
 
-        # 使用 xargs 实现多线程并发检测
+        # 并发检测
         cat cleaned.txt | xargs -P 20 -I {} bash validate.sh "{}"
 
-        # 合并所有有效结果
+        # 合并有效结果
         cat valid_results/*.tmp > live.txt 2>/dev/null || true
         VALID_COUNT=$(wc -l < live.txt 2>/dev/null || echo 0)
         
         echo "====== Done! Valid streams: $VALID_COUNT / $TOTAL_RAW ======"
 
-        # 清理临时文件
+        # 清理
         rm -f cleaned.txt validate.sh
         rm -rf valid_results
 
