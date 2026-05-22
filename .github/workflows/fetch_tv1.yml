@@ -1,0 +1,106 @@
+name: Fetch and Merge TV Sources
+
+on:
+  schedule:
+    - cron: '0 2,14 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4  # 顺手更新到了v4，消除Node.js警告
+
+    - name: Fetch and Merge URLs
+      run: |
+        echo "Starting fetch..."
+        > live.txt
+        
+        # -------------------------------------------
+        # 定义格式转换函数 (M3U转TXT)
+        # -------------------------------------------
+        convert_m3u_to_txt() {
+          local content="$1"
+          echo "$content" | awk '
+          BEGIN { channel="" }
+          /^#EXTINF/ {
+            # 匹配逗号后面的频道名 (支持 tvg-name 和 直接触逗号两种常见写法)
+            if (match($0, /,[^,]*$/)) {
+              channel = substr($0, RSTART+1)
+            } else {
+              channel = ""
+            }
+            next
+          }
+          /^http/ {
+            if (channel != "") {
+              print channel "," $0
+              channel = ""
+            } else {
+              # 如果没有匹配到频道名，只输出URL
+              print $0
+            }
+          }
+          '
+        }
+        
+        # -------------------------------------------
+        # 定义安全抓取函数 (自动识别并转换)
+        # -------------------------------------------
+        fetch_and_merge() {
+          local url="$1"
+          local is_m3u="$2"  # 参数2：如果确定是m3u，传入 "m3u"
+          
+          echo "Fetching $url..."
+          raw_content=$(curl -sL --connect-timeout 10 --max-time 20 -k "$url")
+          
+          if [ -z "$raw_content" ]; then
+            echo "Warning: Failed to fetch or empty response from $url"
+            return
+          fi
+          
+          # 判断是否需要转换：手动指定了m3u，或者内容里包含 #EXTM3U / #EXTINF
+          if [[ "$is_m3u" == "m3u" ]] || [[ "$raw_content" == *"EXTINF"* ]]; then
+            echo "Detected M3U format, converting to TXT..."
+            converted_content=$(convert_m3u_to_txt "$raw_content")
+            echo "$converted_content" >> live.txt
+          else
+            echo "Detected TXT format, appending directly..."
+            echo "$raw_content" >> live.txt
+          fi
+          
+          echo "" >> live.txt
+        }
+
+        # -------------------------------------------
+        # 开始抓取 (如果明确知道是m3u源，可以在URL后加上 "m3u" 参数)
+        # -------------------------------------------
+        
+        # 抓取1 (这个是 txt 格式)
+        fetch_and_merge "https://raw.githubusercontent.com/jn950/live/main/tv/pllive.txt"
+        
+        # 抓取2 (国内家宽，如果可能是m3u，把最后的 "" 改成 "m3u")
+        fetch_and_merge "http://koo666.online:50085/sub?nFMW1pnS=txt"
+        
+        # 抓取3 (同上)
+        fetch_and_merge "http://koo666.online:51666"
+        
+        # 抓取4 (同上)
+        fetch_and_merge "http://koo666.online:5908"
+        
+        echo "Fetch and merge completed!"
+        
+        # 可选：显示一下合并后的行数，方便调试
+        echo "Total lines in live.txt: $(wc -l < live.txt)"
+
+    - name: Commit and Push changes
+      run: |
+        git config --global user.name "GitHub Action"
+        git config --global user.email "action@github.com"
+        git add live.txt
+        git diff --staged --quiet || git commit -m "Auto update live.txt (M3U converted if needed)"
+        git push
