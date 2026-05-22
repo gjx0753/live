@@ -15,9 +15,9 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Fetch, Validate and Merge URLs
+    - name: Fetch Validate and Merge
       run: |
-        echo "====== Step 1: Fetching Sources ======"
+        echo "Step 1: Fetching Sources"
         TEMP_RAW="raw_merged.txt"
         > "$TEMP_RAW"
 
@@ -32,21 +32,21 @@ jobs:
         for SOURCE in "${SOURCES[@]}"; do
           NAME="${SOURCE%%|*}"
           URL="${SOURCE##*|}"
-          echo ">>> Fetching: $NAME"
+          echo "Fetching: $NAME"
           
           HTTP_CODE=$(curl -sL --connect-timeout 10 --max-time 30 -w "%{http_code}" -o "${NAME}.tmp" "$URL") || true
           
           if [ -s "${NAME}.tmp" ] && [ "$HTTP_CODE" = "200" ]; then
             LINES=$(wc -l < "${NAME}.tmp")
-            echo "    ✅ Success ($LINES lines)"
+            echo "Success ($LINES lines)"
             cat "${NAME}.tmp" >> "$TEMP_RAW"
           else
-            echo "    ❌ Failed (HTTP $HTTP_CODE)"
+            echo "Failed (HTTP $HTTP_CODE)"
           fi
           rm -f "${NAME}.tmp"
         done
 
-        echo "====== Step 2: Converting & Cleaning ======"
+        echo "Step 2: Converting and Cleaning"
         sed -i 's/\r$//' "$TEMP_RAW"
         chmod +x .github/scripts/validate.sh
         bash .github/scripts/validate.sh "$TEMP_RAW" "cleaned.txt"
@@ -56,10 +56,10 @@ jobs:
         mv "temp_uniq.txt" "cleaned.txt"
 
         TOTAL_RAW=$(wc -l < "cleaned.txt")
-        echo "Total unique lines to validate: $TOTAL_RAW"
+        echo "Total unique lines: $TOTAL_RAW"
         rm -f "$TEMP_RAW"
 
-        echo "====== Step 3: Validating Streams (Concurrency: 20) ======"
+        echo "Step 3: Validating Streams"
         mkdir -p valid_results
         rm -f valid_results/*
 
@@ -68,12 +68,12 @@ jobs:
         cat valid_results/*.tmp > live.txt 2>/dev/null || true
         VALID_COUNT=$(wc -l < live.txt 2>/dev/null || echo 0)
         
-        echo "====== Done! Valid streams: $VALID_COUNT / $TOTAL_RAW ======"
+        echo "Done! Valid streams: $VALID_COUNT / $TOTAL_RAW"
 
         rm -f cleaned.txt
         rm -rf valid_results
 
-    - name: Commit and Push changes
+    - name: Commit and Push
       run: |
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
