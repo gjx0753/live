@@ -1,8 +1,8 @@
-name: Fetch and Validate TV Sources
+name: Fetch and Merge TV Sources
 
 on:
   schedule:
-    - cron: '0 0,6,12,18 * * *'
+    - cron: '0 2,14 * * *'
   workflow_dispatch:
 
 permissions:
@@ -13,70 +13,38 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v3
 
-    - name: Run tasks
+    - name: Fetch and Merge URLs
       run: |
-        echo "Step 1 Fetching Sources"
-        TEMP_RAW="raw_merged.txt"
-        > "$TEMP_RAW"
-
-        SOURCES=(
-          "pllive|https://raw.githubusercontent.com/jn950/live/main/tv/pllive.txt"
-          "wangziduoqing|http://wangziduoqing.com/yuan/zb.txt"
-          "koo666-50085|http://koo666.online:50085/sub?nFMW1pnS=txt"
-          "koo666-51666|http://koo666.online:51666"
-          "koo666-5908|http://koo666.online:5908"
-        )
-
-        for SOURCE in "${SOURCES[@]}"; do
-          NAME="${SOURCE%%|*}"
-          URL="${SOURCE##*|}"
-          echo "Fetching $NAME"
-          
-          HTTP_CODE=$(curl -sL --connect-timeout 10 --max-time 30 -w "%{http_code}" -o "${NAME}.tmp" "$URL") || true
-          
-          if [ -s "${NAME}.tmp" ] && [ "$HTTP_CODE" = "200" ]; then
-            LINES=$(wc -l < "${NAME}.tmp")
-            echo "Success $LINES lines"
-            cat "${NAME}.tmp" >> "$TEMP_RAW"
-          else
-            echo "Failed HTTP $HTTP_CODE"
-          fi
-          rm -f "${NAME}.tmp"
-        done
-
-        echo "Step 2 Converting and Cleaning"
-        sed -i 's/\r$//' "$TEMP_RAW"
-        chmod +x .github/scripts/validate.sh
-        bash .github/scripts/validate.sh "$TEMP_RAW" "cleaned.txt"
-
-        sed -i '/^\s*$/d' "cleaned.txt"
-        awk "!seen[\$0]++" "cleaned.txt" > "temp_uniq.txt"
-        mv "temp_uniq.txt" "cleaned.txt"
-
-        TOTAL_RAW=$(wc -l < "cleaned.txt")
-        echo "Total unique lines $TOTAL_RAW"
-        rm -f "$TEMP_RAW"
-
-        echo "Step 3 Validating Streams"
-        mkdir -p valid_results
-        rm -f valid_results/*
-
-        cat cleaned.txt | xargs -P 20 -I {} bash .github/scripts/validate.sh "ignored" "ignored" "{}" "valid_results/\$BASHPID.tmp"
-
-        cat valid_results/*.tmp > live.txt 2>/dev/null || true
-        VALID_COUNT=$(wc -l < live.txt 2>/dev/null || echo 0)
+        echo "Starting fetch..."
+        > live.txt
         
-        echo "Done Valid streams $VALID_COUNT / $TOTAL_RAW"
+        # 抓取1 (这个肯定能通)
+        echo "Fetching pllive.txt..."
+        curl -sL --connect-timeout 10 --max-time 30 "https://raw.githubusercontent.com/jn950/live/main/tv/pllive.txt" >> live.txt || true
+        echo "" >> live.txt
+        
+        # 抓取2 (国内家宽，GitHub连不上，加上 || true 防止崩溃)
+        echo "Fetching koo666 50085..."
+        curl -sL --connect-timeout 5 --max-time 10 -k "http://koo666.online:50085/sub?nFMW1pnS=txt" >> live.txt || true
+        echo "" >> live.txt
+        
+        # 抓取3
+        echo "Fetching koo666 51666..."
+        curl -sL --connect-timeout 5 --max-time 10 -k "http://koo666.online:51666" >> live.txt || true
+        echo "" >> live.txt
+        
+        # 抓取4
+        echo "Fetching koo666 5908..."
+        curl -sL --connect-timeout 5 --max-time 10 -k "http://koo666.online:5908" >> live.txt || true
+        
+        echo "Fetch completed!"
 
-        rm -f cleaned.txt
-        rm -rf valid_results
-
-    - name: Commit and Push
+    - name: Commit and Push changes
       run: |
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
         git add live.txt
-        git diff --staged --quiet || git commit -m "Auto update live.txt [Valid: $(wc -l < live.txt) streams] $(date -u +%Y-%m-%dT%H:%MZ)"
+        git diff --staged --quiet || git commit -m "Auto update live.txt"
         git push
