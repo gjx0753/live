@@ -47,16 +47,10 @@ jobs:
         done
 
         echo "====== Step 2: Converting & Cleaning ======"
-        # 杀死 \r 换行符
         sed -i 's/\r$//' "$TEMP_RAW"
-        
-        # 赋予脚本执行权限
         chmod +x .github/scripts/validate.sh
-        
-        # 调用脚本进行 M3U 转 TXT
         bash .github/scripts/validate.sh "$TEMP_RAW" "cleaned.txt"
 
-        # 去空行、去重
         sed -i '/^\s*$/d' "cleaned.txt"
         awk "!seen[\$0]++" "cleaned.txt" > "temp_uniq.txt"
         mv "temp_uniq.txt" "cleaned.txt"
@@ -69,10 +63,8 @@ jobs:
         mkdir -p valid_results
         rm -f valid_results/*
 
-        # 并发调用脚本进行验证
         cat cleaned.txt | xargs -P 20 -I {} bash .github/scripts/validate.sh "ignored" "ignored" "{}" "valid_results/\$BASHPID.tmp"
 
-        # 合并有效结果
         cat valid_results/*.tmp > live.txt 2>/dev/null || true
         VALID_COUNT=$(wc -l < live.txt 2>/dev/null || echo 0)
         
