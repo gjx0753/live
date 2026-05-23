@@ -64,7 +64,22 @@ jobs:
         
         # 抓取4
         fetch_and_merge "http://koo666.online:5908"
-        
+
+
+                # 抓取5
+        fetch_and_merge "https://raw.githubusercontent.com/YueChan/Live/main/GNTV.m3u"
+
+        # 抓取6
+        fetch_and_merge "https://raw.githubusercontent.com/YueChan/Live/main/Global.m3u"
+
+        # 抓取7
+        fetch_and_merge "https://raw.githubusercontent.com/YueChan/Live/main/Hunan.txt"
+
+                # 抓取8
+        fetch_and_merge "https://raw.githubusercontent.com/YueChan/Live/main/IPTV.m3u"
+
+                # 抓取9
+        fetch_and_merge "https://raw.githubusercontent.com/YueChan/Live/main/Radio.m3u"
         echo "Fetch and merge completed!"
         echo "Total lines in live.txt: $(wc -l < live.txt)"
 
