@@ -2888,7 +2888,7 @@ Cinemax,http://23.237.104.106:8080/USA_CINEMAX/tracks-v1a1/mono.m3u8
 HBO王牌,http://23.237.104.106:8080/USA_HBO_ZONE/tracks-v1a1/mono.m3u8
 河北4K,https://event.pull.hebtv.com:443/live/live101.m3u8
 看东方4K,http://bp-resource-dfl.bestv.cn/148/3/video.m3u8
-苏州4K,https://live-auth.51kandianshi.com/szgd/csztv4k_hd.m3u8
+苏州4K,https://live-auth.51kandianshi.com/szgd/csztv4k_4k.m3u8
 钱江都市,http://ali-xwl.cztv.com/live/channel021080Plxw.m3u8
 经济生活,http://ali-xwl.cztv.com/live/channel031080Plxw.m3u8
 教科影院,http://ali-xwl.cztv.com/live/channel041080Plxw.m3u8
