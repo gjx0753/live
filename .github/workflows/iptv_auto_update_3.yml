@@ -1,0 +1,166 @@
+name: IPTV Auto Update 3
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Run
+      run: |
+        echo "Start"
+        : > raw.txt
+        
+        fetch() {
+          local name="$1"
+          local url="$2"
+          echo "Fetch: $name"
+          local data=$(curl -sL --connect-timeout 15 --max-time 30 -k "$url" 2>&1)
+          if [ -n "$data" ]; then
+            echo "$data" >> raw.txt
+            echo "$name OK"
+          else
+            echo "$name FAIL"
+          fi
+        }
+
+        fetch "G6" "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/ipv6/result.m3u"
+        fetch "G4" "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/ipv4/result.m3u"
+        fetch "Fan" "https://live.fanmingming.cn/tv/m3u/ipv6.m3u"
+        fetch "Jn" "https://raw.githubusercontent.com/jn950/live/main/tv/pllive.txt"
+        fetch "YueG" "https://raw.githubusercontent.com/YueChan/Live/main/GNTV.m3u"
+        fetch "YueGl" "https://raw.githubusercontent.com/YueChan/Live/main/Global.m3u"
+        fetch "YueH" "https://raw.githubusercontent.com/YueChan/Live/main/Hunan.txt"
+        fetch "YueI" "https://raw.githubusercontent.com/YueChan/Live/main/IPTV.m3u"
+        fetch "YueR" "https://raw.githubusercontent.com/YueChan/Live/main/Radio.m3u"
+        fetch "Yan" "https://tv.iill.top/m3u/Gather"
+        fetch "Zb6" "https://live.zbds.org/tv/iptv6.m3u"
+        fetch "Zb4" "https://live.zbds.org/tv/iptv4.m3u"
+        fetch "Kim" "https://raw.githubusercontent.com/Kimentanm/aptv/master/m3u/iptv.m3u"
+        fetch "Burn" "https://raw.githubusercontent.com/BurningC4/Chinese-IPTV/master/TV-IPV4.m3u"
+        fetch "Zwc" "https://raw.githubusercontent.com/zwc456baby/iptv_alive/refs/heads/master/live.m3u"
+        fetch "Huj" "https://raw.githubusercontent.com/hujingguang/ChinaIPTV/main/cnTV_AutoUpdate.m3u8"
+        fetch "Su4" "https://raw.githubusercontent.com/suxuang/myIPTV/refs/heads/main/ipv4.m3u"
+        fetch "Su6" "https://raw.githubusercontent.com/suxuang/myIPTV/refs/heads/main/ipv6.m3u"
+        fetch "Ttt" "http://tttttt.tttttttttt.top/jk.txt"
+        fetch "Iber" "https://m3u.ibert.me/fmml_ipv6.m3u"
+        fetch "Joe" "https://raw.githubusercontent.com/joevess/IPTV/main/m3u/iptv.m3u"
+        fetch "Ft" "https://raw.githubusercontent.com/Ftindy/IPTV-URL/main/IPV6.m3u"
+        fetch "Aktv" "https://aktv.space/live.m3u"
+
+        # 原始去重逻辑（保持不变）
+        if [ -s raw.txt ]; then
+          awk '!seen[$0]++' raw.txt > live.m3u
+        else
+          : > live.m3u
+        fi
+
+        # ==========================================
+        # 新增功能 1：M3U 转 TXT（保留原分组）
+        # ==========================================
+        echo "Converting M3U to TXT with groups..."
+        
+        # 解析 M3U，提取频道名、URL 和分组信息
+        # 输出格式：频道名,URL,分组名（用于后续处理）
+        awk '
+        /#EXTINF/ {
+          info = $0
+          # 提取 group-title（如果存在）
+          group = ""
+          if (match(info, /group-title="([^"]+)"/, arr)) {
+            group = arr[1]
+          }
+          # 提取频道名（最后一个逗号后的内容）
+          n = split(info, arr, ",")
+          name = arr[n]
+          gsub(/^[ \t]+|[ \t]+$/, "", name)
+          next
+        }
+        /#EXTGRP/ {
+          group = $0
+          sub(/^#EXTGRP:/, "", group)
+          gsub(/^[ \t]+|[ \t]+$/, "", group)
+          next
+        }
+        /^http/ {
+          if (info != "") {
+            print name "," $0 "," group
+          }
+          info = ""
+          group = ""
+        }
+        ' live.m3u > live_with_group.txt
+
+        # ==========================================
+        # 新增功能 2：并发有效性验证（30进程）
+        # ==========================================
+        echo "Validating links (30 concurrent)..."
+        
+        rm -rf valid_parts
+        mkdir -p valid_parts
+
+        check_line() {
+          local line="$1"
+          local url=$(echo "$line" | cut -d',' -f2)
+          
+          if [ -n "$url" ]; then
+            local code=$(curl -I -s -o /dev/null -w "%{http_code}" --connect-timeout 3 --max-time 5 -k "$url" 2>/dev/null)
+            if echo "$code" | grep -qE "^[23]"; then
+              echo "$line" >> "valid_parts/$BASHPID"
+            fi
+          fi
+        }
+
+        while IFS= read -r line; do
+          [ -z "$line" ] && continue
+          check_line "$line" &
+          if [ $(jobs -r | wc -l) -ge 30 ]; then
+            wait
+          fi
+        done < live_with_group.txt
+        wait
+
+        # 合并验证通过的内容
+        cat valid_parts/* > live_valid.txt 2>/dev/null || : > live_valid.txt
+
+        # ==========================================
+        # 重新生成分组头，输出最终 live.txt
+        # ==========================================
+        echo "Regenerating groups..."
+        
+        # 读取验证后的数据，按顺序生成分组头
+        # 格式：分组名,#genre# 然后 频道名,URL
+        awk '
+        BEGIN {
+          FS=","
+        }
+        {
+          name=$1; url=$2; group=$3
+          # 如果分组存在且还没输出过该分组头，则输出
+          if (group != "" && !printed[group]++) {
+            print group ",#genre#"
+          }
+          print name "," url
+        }
+        ' live_valid.txt > live.txt
+
+        # ==========================================
+        # 恢复原有的分类逻辑
+        # ==========================================
+        grep -i "CCTV" live.txt > CCTV.txt 2>/dev/null || : > CCTV.txt
+        grep -i "卫视" live.txt > Satellite.txt 2>/dev/null || : > Satellite.txt
+
+        echo "Total lines: $(wc -l < live.txt)"
+
+    - name: Commit
+      run: |
+        git config --global user.name "Bot"
+        git config --global user.email "bot@github.com"
+        git add live.txt CCTV.txt Satellite.txt
+        git diff --staged --quiet || git commit -m "Auto Update"
+        git push
