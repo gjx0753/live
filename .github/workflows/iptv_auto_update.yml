@@ -2,10 +2,9 @@ name: IPTV Auto Update
 
 on:
   schedule:
-    - cron: '0 */6 * * *' # 每6小时运行一次
+    - cron: '0 */6 * * *'
   workflow_dispatch:
 
-# 提前使用 Node.js 24 避免弃用警告
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -32,15 +31,12 @@ jobs:
       id: read_outputs
       run: |
         if [ -f iptv_outputs.txt ]; then
-          # 将文件内容写入 GitHub Output
           while IFS='=' read -r key value; do
             echo "$key=$value" >> $GITHUB_OUTPUT
           done < iptv_outputs.txt
-        else
-          echo "iptv_outputs.txt not found!"
         fi
 
-    - name: Upload Logs and Artifacts
+    - name: Upload Logs
       if: always()
       uses: actions/upload-artifact@v4
       with:
@@ -53,91 +49,55 @@ jobs:
         retention-days: 7
         if-no-files-found: ignore
 
-    - name: Commit and Push Changes
+    - name: Commit and Push
       run: |
         git config --global user.name "GitHub Action"
         git config --global user.email "action@github.com"
-        
-        # 添加生成的频道文件
         git add live.txt CCTV.txt Satellite.txt Regional.txt
         
-        # 检查是否有变化
         if git diff --staged --quiet; then
           echo "No changes detected."
           echo "HAS_CHANGES=false" >> $GITHUB_ENV
         else
-          git commit -m "📅 Auto Update: $(date '+%Y-%m-%d %H:%M:%S')
-
-📊 Report:
-  ✅ Success Sources: ${{ steps.read_outputs.outputs.success_count }}
-  ❌ Failed Sources: ${{ steps.read_outputs.outputs.failed_count }}
-  📺 Total Channels: ${{ steps.read_outputs.outputs.total_raw_channels }}
-  🟢 Valid Channels: ${{ steps.read_outputs.outputs.valid_channels }}"
-          
+          git commit -m "Auto Update: $(date)"
           git push
           echo "HAS_CHANGES=true" >> $GITHUB_ENV
         fi
 
-    - name: Send Telegram Notification
+    - name: Telegram Notify
       if: always()
       env:
         TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       run: |
-        # 读取统计数据
         TOTAL=$(wc -l < live.txt 2>/dev/null || echo 0)
         CCTV=$(wc -l < CCTV.txt 2>/dev/null || echo 0)
         SAT=$(wc -l < Satellite.txt 2>/dev/null || echo 0)
-        REG=$(wc -l < Regional.txt 2>/dev/null || echo 0)
         
         SUCCESS="${{ steps.read_outputs.outputs.success_count }}"
-        FAILED="${{ steps.read_outputs.outputs.failed_count }}"
         VALID="${{ steps.read_outputs.outputs.valid_channels }}"
         
-        # 构建状态文本
-        if [ -z "$SUCCESS" ] || [ "$SUCCESS" = "0" ]; then
-          STATUS_TEXT="⛔ 任务失败"
-        elif [ "$HAS_CHANGES" = "false" ]; then
-          STATUS_TEXT="ℹ️ 无内容更新"
-        else
-          STATUS_TEXT="✅ 任务完成"
-        fi
+        if [ -z "$SUCCESS" ]; then SUCCESS="0"; fi
         
-        # 构建消息
-        MSG="📺 IPTV 源自动更新报告
+        MSG="IPTV Update Report
         
-$STATUS_TEXT
-
-📊 统计信息:
-📡 总频道数: $TOTAL
-🏛️ 央视频道: $CCTV
-📡 卫视频道: $SAT
-🏙️ 地方频道: $REG
-
-🔧 源状态:
-✅ 成功: $SUCCESS
-❌ 失败: $FAILED
-🟢 有效: $VALID
-
-🕒 时间: $(date '+%H:%M:%S')"
-
-        # 发送
+Status: Success
+Total: $TOTAL | CCTV: $CCTV | Sat: $SAT
+Sources OK: $SUCCESS
+Valid Links: $VALID"
+        
         if [ -n "$TELEGRAM_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
           curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
             -d chat_id="$TELEGRAM_CHAT_ID" \
             -d text="$MSG"
         fi
 
-    - name: Build Summary Report
+    - name: Build Summary
       if: always()
       run: |
-        echo "## 📊 运行摘要" >> $GITHUB_STEP_SUMMARY
+        echo "IPTV Update Report" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "| 指标 | 数量 |" >> $GITHUB_STEP_SUMMARY
-        echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-        echo "| 成功源数 | ${{ steps.read_outputs.outputs.success_count }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| 失败源数 | ${{ steps.read_outputs.outputs.failed_count }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| 原始频道 | ${{ steps.read_outputs.outputs.total_raw_channels }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| 有效频道 | ${{ steps.read_outputs.outputs.valid_channels }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| 央视 | $CCTV |" >> $GITHUB_STEP_SUMMARY
-        echo "| 卫视 | $SAT |" >> $GITHUB_STEP_SUMMARY
+        echo "Success Sources: ${{ steps.read_outputs.outputs.success_count }}" >> $GITHUB_STEP_SUMMARY
+        echo "Failed Sources: ${{ steps.read_outputs.outputs.failed_count }}" >> $GITHUB_STEP_SUMMARY
+        echo "Total Channels: ${{ steps.read_outputs.outputs.total_raw_channels }}" >> $GITHUB_STEP_SUMMARY
+        echo "Valid Channels: ${{ steps.read_outputs.outputs.valid_channels }}" >> $GITHUB_STEP_SUMMARY
