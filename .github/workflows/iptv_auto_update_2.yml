@@ -1,0 +1,222 @@
+name: IPTV Auto Update 2
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Run IPTV
+      run: |
+        echo "Start IPTV Update"
+        OK=0
+        FAIL=0
+        : > raw.txt
+
+        fetch() {
+          local name="$1"
+          local url="$2"
+          local prio="$3"
+          echo "Fetch: $name"
+          local data=$(curl -sL --connect-timeout 15 --max-time 30 -k "$url" 2>&1)
+          if [ -z "$data" ]; then
+            echo "$name FAIL"
+            FAIL=$((FAIL + 1))
+            return
+          fi
+          
+          # 解析数据：频道名,链接,优先级
+          echo "$data" | awk -v p="$prio" '
+            /#EXTINF/ { info=$0; next }
+            /^http/ { 
+              if(info!="") {
+                split(info, arr, ",");
+                name = arr[length(arr)];
+                gsub(/^[ \t]+|[ \t]+$/, "", name);
+                if(name == "") name = "Unknown";
+                print name","$0","p
+              }
+              info=""
+            }
+          ' >> raw.txt
+          echo "$name OK"
+          OK=$((OK + 1))
+        }
+
+        fetch "G6" "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/ipv6/result.m3u" 1
+        fetch "G4" "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/ipv4/result.m3u" 1
+        fetch "Fan" "https://live.fanmingming.cn/tv/m3u/ipv6.m3u" 2
+        fetch "Yan" "https://tv.iill.top/m3u/Gather" 2
+        fetch "Zb6" "https://live.zbds.org/tv/iptv6.m3u" 2
+        fetch "Zb4" "https://live.zbds.org/tv/iptv4.m3u" 2
+        fetch "Su4" "https://raw.githubusercontent.com/suxuang/myIPTV/refs/heads/main/ipv4.m3u" 2
+        fetch "Su6" "https://raw.githubusercontent.com/suxuang/myIPTV/refs/heads/main/ipv6.m3u" 2
+        fetch "Aktv" "https://aktv.space/live.m3u" 2
+        fetch "Jn" "https://raw.githubusercontent.com/jn950/live/main/tv/pllive.txt" 3
+        fetch "YueG" "https://raw.githubusercontent.com/YueChan/Live/main/GNTV.m3u" 3
+        fetch "YueGl" "https://raw.githubusercontent.com/YueChan/Live/main/Global.m3u" 3
+        fetch "YueH" "https://raw.githubusercontent.com/YueChan/Live/main/Hunan.txt" 3
+        fetch "YueI" "https://raw.githubusercontent.com/YueChan/Live/main/IPTV.m3u" 3
+        fetch "Iber" "https://m3u.ibert.me/fmml_ipv6.m3u" 3
+        fetch "Kim" "https://raw.githubusercontent.com/Kimentanm/aptv/master/m3u/iptv.m3u" 3
+        fetch "Joe" "https://raw.githubusercontent.com/joevess/IPTV/main/m3u/iptv.m3u" 3
+        fetch "YueR" "https://raw.githubusercontent.com/YueChan/Live/main/Radio.m3u" 4
+        fetch "Burn" "https://raw.githubusercontent.com/BurningC4/Chinese-IPTV/master/TV-IPV4.m3u" 4
+        fetch "Zwc" "https://raw.githubusercontent.com/zwc456baby/iptv_alive/refs/heads/master/live.m3u" 4
+        fetch "Huj" "https://raw.githubusercontent.com/hujingguang/ChinaIPTV/main/cnTV_AutoUpdate.m3u8" 4
+        fetch "Ft" "https://raw.githubusercontent.com/Ftindy/IPTV-URL/main/IPV6.m3u" 4
+        fetch "Ttt" "http://tttttt.tttttttttt.top/jk.txt" 5
+
+        echo "Sources OK: $OK, FAIL: $FAIL"
+
+        # 1. 优先级去重 (频道名排序，保留最高优先级)
+        if [ -s raw.txt ]; then
+          sort -t',' -k1,1 -k3,3n raw.txt | awk -F',' '!seen[$1]++' > deduped.txt
+        else
+          : > deduped.txt
+        fi
+
+        # 2. 自动分组 + 验证
+        echo "Validating and Generating..."
+        mkdir -p tmp
+
+        validate() {
+          local line="$1"
+          local ch=$(echo "$line" | cut -d',' -f1)
+          local url=$(echo "$line" | cut -d',' -f2)
+          
+          # 确定分组
+          local grp="其它频道"
+          if [[ "$ch" =~ CCTV|CETV ]]; then grp="央视"
+          elif [[ "$ch" =~ 卫视|凤凰|珠江 ]]; then grp="卫视"
+          elif [[ "$ch" =~ 香港|港台|澳视|澳门|TVB|翡翠|本港|HOY|有线|NOW|奇妙|TVBS|中视|华视|台视|民视|东森|三立|八大|年代|寰宇|龙华|TIB|TVG|TLC|AXN|HBO|Cinemax|FOX|Disney|CNBC|CNN|Bloomberg|NHK|KBS|SBS|JTBC|MBC ]]; then grp="港澳台"
+          elif [[ "$ch" =~ 轮播|Loop|剧场|1080P|4K ]]; then grp="轮播频道"
+          elif [[ "$ch" =~ 新疆|北京|湖南|浙江|江苏|山东|上海|广东|黑龙江|四川|湖北|河南|重庆|四川|贵州|辽宁|云南|甘肃|广西|宁夏|内蒙古|天津|江西|福建|陕西|吉林|安徽|深圳|青岛|大连|厦门|宁波|苏州|太原|石家庄|成都|海口|拉萨|南宁|哈尔滨|沈阳|长春|银川|呼和浩特|西宁|济南|兰州|南昌|昆明|贵阳|郑州|武汉|长沙|南京|杭州|合肥|广州 ]]; then grp="地方"
+          elif [[ "$ch" =~ 军事|体育|影视|音乐|农业|少儿|动画|戏曲|纪录|经济|环球|综合 ]]; then grp="科教"
+          elif [[ "$ch" =~ 新华社|CGTN ]]; then grp="国际"
+          fi
+
+          # 验证
+          local is_valid=0
+          if [[ "$url" =~ ^https?:// ]]; then
+            local code=$(curl -I -s -o /dev/null -w "%{http_code}" --connect-timeout 3 --max-time 5 -k "$url" 2>/dev/null)
+            if [[ "$code" =~ ^[23] ]]; then
+              is_valid=1
+            fi
+          else
+            is_valid=1
+          fi
+
+          if [ "$is_valid" -eq 1 ]; then
+            echo "$grp,$ch,$url" >> "tmp/$BASHPID"
+          fi
+        }
+
+        # 并发验证
+        while IFS=',' read -r ch url prio; do
+          [ -z "$url" ] && continue
+          validate "$ch,$url,$prio" &
+          if [[ $(( $(jobs -r | wc -l) % 30 )) -eq 0 ]]; then wait; fi
+        done < deduped.txt
+        wait
+
+        # 合并所有有效链接
+        cat tmp/* > valid_all.txt 2>/dev/null || : > valid_all.txt
+        rm -rf tmp
+
+        # 定义分组顺序
+        ORDER="央视 卫视 港澳台 地方 科教 轮播频道 其它频道 国际"
+
+        # 辅助函数：生成文件内容
+        build_txt() {
+          local target_grp="$1"
+          local output_file="$2"
+          
+          # 如果该分组有数据
+          if grep -q ",$target_grp," valid_all.txt; then
+            echo "$target_grp,#genre#" >> "$output_file"
+            # 提取频道名和链接，使用awk去重同名频道的链接并用#号拼接
+            grep ",$target_grp," valid_all.txt | cut -d',' -f2,3 | awk -F',' '
+              {
+                ch=$1; url=$2
+                if(ch in urls){
+                  urls[ch]=urls[ch]"#"url
+                } else {
+                  urls[ch]=url
+                }
+              }
+              END{
+                for(c in urls){
+                  print c","urls[c]
+                }
+              }
+            ' >> "$output_file"
+          fi
+        }
+
+        # 生成 live.txt (全量)
+        : > live.txt
+        for grp in $ORDER; do
+           build_txt "$grp" "live.txt"
+        done
+
+        # 生成分类文件
+        : > CCTV.txt
+        build_txt "央视" "CCTV.txt"
+        
+        : > Satellite.txt
+        build_txt "卫视" "Satellite.txt"
+        
+        : > Regional.txt
+        build_txt "地方" "Regional.txt"
+        
+        : > HKMT.txt
+        build_txt "港澳台" "HKMT.txt"
+        
+        : > Loop.txt
+        build_txt "轮播频道" "Loop.txt"
+
+        : > Other.txt
+        build_txt "其它频道" "Other.txt"
+
+        # 统计
+        TOTAL=$(grep -c "^http" live.txt 2>/dev/null || echo 0)
+        echo "Total Valid: $TOTAL"
+
+        : > out.txt
+        echo "OK=$OK" >> out.txt
+        echo "FAIL=$FAIL" >> out.txt
+        echo "TOTAL=$TOTAL" >> out.txt
+
+    - name: Read Outputs
+      if: always()
+      id: read
+      run: |
+        if [ -f out.txt ]; then
+          while IFS='=' read -r key value; do
+            echo "$key=$value" >> $GITHUB_OUTPUT
+          done < out.txt
+        fi
+
+    - name: Commit
+      run: |
+        git config --global user.name "Bot"
+        git config --global user.email "bot@github.com"
+        git add . 
+        git diff --staged --quiet || git commit -m "Update with HKMT and Loop Groups"
+        git push
+
+    - name: Summary
+      if: always()
+      run: |
+        echo "## IPTV Update Report" >> $GITHUB_STEP_SUMMARY
+        echo "- Sources OK: ${{ steps.read.outputs.OK }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Sources FAIL: ${{ steps.read.outputs.FAIL }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Valid Channels: ${{ steps.read.outputs.TOTAL }}" >> $GITHUB_STEP_SUMMARY
+        echo "Groups: CCTV, Satellite, HKMT, Regional, Edu, Loop, Other" >> $GITHUB_STEP_SUMMARY
