@@ -1,0 +1,115 @@
+name: IPTV Auto Update
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow-dispatch:
+env:
+  FORCE-JAVASCRIPT-ACTIONS-TO-NODE24: true
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    - name: Run IPTV Script
+      id: run-script
+      run: |
+        echo "IPTV Script Started"
+        OK=0
+        FAIL=0
+        VALID=0
+        : > raw.txt
+        : > valid.txt
+        : > outputs.txt
+        fetch() {
+          local name="$1"
+          local url="$2"
+          echo "Fetch: $name"
+          local data=$(curl -sL --connect-timeout 10 --max-time 20 -k "$url" 2>&1)
+          if [ -n "$data" ]; then
+            echo "$data" >> raw.txt
+            OK=$((OK + 1))
+            echo "$name OK"
+          else
+            FAIL=$((FAIL + 1))
+            echo "$name FAIL"
+          fi
+        }
+        fetch "Guovin6" "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/ipv6/result.m3u"
+        fetch "Guovin4" "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/ipv4/result.m3u"
+        fetch "Fan" "https://live.fanmingming.cn/tv/m3u/ipv6.m3u"
+        fetch "Jn" "https://raw.githubusercontent.com/jn950/live/main/tv/pllive.txt"
+        fetch "YueG" "https://raw.githubusercontent.com/YueChan/Live/main/GNTV.m3u"
+        fetch "YueGl" "https://raw.githubusercontent.com/YueChan/Live/main/Global.m3u"
+        fetch "YueH" "https://raw.githubusercontent.com/YueChan/Live/main/Hunan.txt"
+        fetch "YueI" "https://raw.githubusercontent.com/YueChan/Live/main/IPTV.m3u"
+        fetch "YueR" "https://raw.githubusercontent.com/YueChan/Live/main/Radio.m3u"
+        fetch "Yan" "https://tv.iill.top/m3u/Gather"
+        fetch "Zb6" "https://live.zbds.org/tv/iptv6.m3u"
+        fetch "Zb4" "https://live.zbds.org/tv/iptv4.m3u"
+        fetch "Kim" "https://raw.githubusercontent.com/Kimentanm/aptv/master/m3u/iptv.m3u"
+        fetch "Burn" "https://raw.githubusercontent.com/BurningC4/Chinese-IPTV/master/TV-IPV4.m3u"
+        fetch "Zwc" "https://raw.githubusercontent.com/zwc456baby/iptv_alive/refs/heads/master/live.m3u"
+        fetch "Huj" "https://raw.githubusercontent.com/hujingguang/ChinaIPTV/main/cnTV_AutoUpdate.m3u8"
+        fetch "Su4" "https://raw.githubusercontent.com/suxuang/myIPTV/refs/heads/main/ipv4.m3u"
+        fetch "Su6" "https://raw.githubusercontent.com/suxuang/myIPTV/refs/heads/main/ipv6.m3u"
+        fetch "Ttt" "http://tttttt.tttttttttt.top/jk.txt"
+        fetch "Iber" "https://m3u.ibert.me/fmml_ipv6.m3u"
+        fetch "Joe" "https://raw.githubusercontent.com/joevess/IPTV/main/m3u/iptv.m3u"
+        fetch "Ft" "https://raw.githubusercontent.com/Ftindy/IPTV-URL/main/IPV6.m3u"
+        fetch "Aktv" "https://aktv.space/live.m3u"
+        echo "OK=$OK" >> outputs.txt
+        echo "FAIL=$FAIL" >> outputs.txt
+        if [ -s raw.txt ]; then
+          awk '!seen[$0]++' raw.txt > temp.txt
+          while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            url=$(echo "$line" | grep -oE 'https?://[^ ]+' | head -1)
+            if [ -n "$url" ]; then
+              code=$(curl -I -s -o /dev/null -w "%{http_code}" --connect-timeout 3 "$url" 2>/dev/null)
+              if [[ "$code" =~ ^[23]..$ ]]; then
+                echo "$line" >> valid.txt
+                VALID=$((VALID + 1))
+              fi
+            else
+              echo "$line" >> valid.txt
+              VALID=$((VALID + 1))
+            fi
+          done < temp.txt
+        fi
+        echo "VALID=$VALID" >> outputs.txt
+        cp valid.txt live.txt 2>/dev/null || : > live.txt
+        grep -i "CCTV" valid.txt > CCTV.txt 2>/dev/null || : > CCTV.txt
+        grep -i "卫视" valid.txt > Satellite.txt 2>/dev/null || : > Satellite.txt
+        echo "Done"
+    - name: Read Outputs
+      if: always()
+      id: read
+      run: |
+        if [ -f outputs.txt ]; then
+          while IFS='=' read -r key value; do
+            echo "$key=$value" >> $GITHUB_OUTPUT
+          done < outputs.txt
+        fi
+    - name: Commit
+      run: |
+        git config --global user.name "Bot"
+        git config --global user.email "bot@github.com"
+        git add live.txt CCTV.txt Satellite.txt
+        if git diff --staged --quiet; then
+          echo "NOCHANGES=true" >> $GITHUB_ENV
+        else
+          git commit -m "Auto"
+          echo "NOCHANGES=false" >> $GITHUB_ENV
+        fi
+    - name: Push
+      if: env.NOCHANGES != 'true'
+      run: git push
+    - name: Summary
+      if: always()
+      run: |
+        echo "OK: ${{ steps.read.outputs.OK }}" >> $GITHUB_STEP_SUMMARY
+        echo "FAIL: ${{ steps.read.outputs.FAIL }}" >> $GITHUB_STEP_SUMMARY
+        echo "VALID: ${{ steps.read.outputs.VALID }}" >> $GITHUB_STEP_SUMMARY
