@@ -1,4 +1,0 @@
-OK=21
-FAIL=2
-TOTAL=0
-0
