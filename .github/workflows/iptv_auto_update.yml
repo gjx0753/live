@@ -1,0 +1,162 @@
+name: IPTV Auto Update
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Run IPTV Script
+      id: run_script
+      run: |
+        #!/bin/bash
+        set +e
+        echo "IPTV Script Started"
+
+        # 初始化文件
+        : > live_all_raw.txt
+        : > live_valid.txt
+        : > live_deduped.txt
+        : > failed_sources.txt
+        : > iptv_outputs.txt
+
+        # 统计变量
+        success_count=0
+        failed_count=0
+        total_fetched=0
+        valid_channels=0
+
+        # 优先级
+        declare -A SOURCE_PRIORITY
+        SOURCE_PRIORITY[Guovin]=10
+        SOURCE_PRIORITY[fanmingming]=20
+        SOURCE_PRIORITY[Default]=99
+
+        fetch_source() {
+          local url="$1"
+          local name="$2"
+          local prio="${SOURCE_PRIORITY[$name]:-99}"
+          echo "Fetching: $name"
+          
+          local content
+          content=$(curl -sL --connect-timeout 15 --max-time 30 -k "$url" 2>&1)
+          
+          if [ -n "$content" ] && [[ ! "$content" =~ ^<.*>$ ]]; then
+            echo "$content" | awk -v p="$prio" '{print $0","p}' >> live_all_raw.txt
+            success_count=$((success_count + 1))
+            echo "$name - OK"
+            return 0
+          fi
+          
+          echo "$name - FAILED"
+          failed_count=$((failed_count + 1))
+          return 1
+        }
+
+        fetch_source "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/ipv6/result.m3u" "Guovin-IPv6"
+        fetch_source "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/ipv4/result.m3u" "Guovin-IPv4"
+        fetch_source "https://live.fanmingming.cn/tv/m3u/ipv6.m3u" "fanmingming"
+        fetch_source "https://raw.githubusercontent.com/jn950/live/main/tv/pllive.txt" "jn950"
+        fetch_source "https://raw.githubusercontent.com/YueChan/Live/main/GNTV.m3u" "YueChan-GNTV"
+        fetch_source "https://raw.githubusercontent.com/YueChan/Live/main/Global.m3u" "YueChan-Global"
+        fetch_source "https://raw.githubusercontent.com/YueChan/Live/main/Hunan.txt" "YueChan-Hunan"
+        fetch_source "https://raw.githubusercontent.com/YueChan/Live/main/IPTV.m3u" "YueChan-IPTV"
+        fetch_source "https://raw.githubusercontent.com/YueChan/Live/main/Radio.m3u" "YueChan-Radio"
+        fetch_source "https://tv.iill.top/m3u/Gather" "YanG-1989"
+        fetch_source "https://live.zbds.org/tv/iptv6.m3u" "vbskycn-IPv6"
+        fetch_source "https://live.zbds.org/tv/iptv4.m3u" "vbskycn-IPv4"
+        fetch_source "https://raw.githubusercontent.com/Kimentanm/aptv/master/m3u/iptv.m3u" "Kimentanm"
+        fetch_source "https://raw.githubusercontent.com/BurningC4/Chinese-IPTV/master/TV-IPV4.m3u" "BurningC4"
+        fetch_source "https://raw.githubusercontent.com/zwc456baby/iptv_alive/refs/heads/master/live.m3u" "zwc456baby"
+        fetch_source "https://raw.githubusercontent.com/hujingguang/ChinaIPTV/main/cnTV_AutoUpdate.m3u8" "ChinaIPTV"
+        fetch_source "https://raw.githubusercontent.com/suxuang/myIPTV/refs/heads/main/ipv4.m3u" "myIPTV-IPv4"
+        fetch_source "https://raw.githubusercontent.com/suxuang/myIPTV/refs/heads/main/ipv6.m3u" "myIPTV-IPv6"
+        fetch_source "http://tttttt.tttttttttt.top/jk.txt" "传说引导页"
+        fetch_source "https://m3u.ibert.me/fmml_ipv6.m3u" "iptv-sources"
+        fetch_source "https://raw.githubusercontent.com/joevess/IPTV/main/m3u/iptv.m3u" "joevess"
+        fetch_source "https://raw.githubusercontent.com/Ftindy/IPTV-URL/main/IPV6.m3u" "Ftindy"
+        fetch_source "https://aktv.space/live.m3u" "AKTV"
+
+        echo "success_count=$success_count" >> iptv_outputs.txt
+        echo "failed_count=$failed_count" >> iptv_outputs.txt
+        echo "total_raw_channels=$total_fetched" >> iptv_outputs.txt
+
+        if [ -s live_all_raw.txt ]; then
+          awk -F',' '!seen[$1]++' live_all_raw.txt > live_deduped.txt
+          
+          while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            url="${line##*,}"
+            
+            if [[ "$url" =~ ^https?:// ]]; then
+              status=$(curl -I -s -o /dev/null -w "%{http_code}" --connect-timeout 3 "$url" 2>/dev/null)
+              if [[ "$status" =~ ^[23][0-9]{2}$ ]]; then
+                echo "$line" >> live_valid.txt
+                valid_channels=$((valid_channels + 1))
+              fi
+            else
+              echo "$line" >> live_valid.txt
+              valid_channels=$((valid_channels + 1))
+            fi
+          done < live_deduped.txt
+        fi
+
+        echo "valid_channels=$valid_channels" >> iptv_outputs.txt
+
+        cp live_valid.txt live.txt 2>/dev/null || : > live.txt
+        grep -i "CCTV" live_valid.txt > CCTV.txt 2>/dev/null || : > CCTV.txt
+        grep -i "卫视" live_valid.txt > Satellite.txt 2>/dev/null || : > Satellite.txt
+
+        echo "Done"
+
+    - name: Read Script Outputs
+      if: always()
+      id: read_outputs
+      run: |
+        if [ -f iptv_outputs.txt ]; then
+          while IFS='=' read -r key value; do
+            echo "$key=$value" >> $GITHUB_OUTPUT
+          done < iptv_outputs.txt
+        fi
+
+    - name: Upload Logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: logs-${{ github.run_number }}
+        path: |
+          failed_sources.txt
+          iptv_outputs.txt
+        retention-days: 7
+        if-no-files-found: ignore
+
+    - name: Commit Changes
+      run: |
+        git config --global user.name "GitHub Action"
+        git config --global user.email "action@github.com"
+        git add live.txt CCTV.txt Satellite.txt
+        if git diff --staged --quiet; then
+          echo "HAS_CHANGES=false" >> $GITHUB_ENV
+        else
+          git commit -m "Auto Update"
+          echo "HAS_CHANGES=true" >> $GITHUB_ENV
+        fi
+
+    - name: Push Changes
+      if: env.HAS_CHANGES == 'true'
+      run: git push
+
+    - name: Build Summary
+      if: always()
+      run: |
+        echo "Success: ${{ steps.read_outputs.outputs.success_count }}" >> $GITHUB_STEP_SUMMARY
+        echo "Failed: ${{ steps.read_outputs.outputs.failed_count }}" >> $GITHUB_STEP_SUMMARY
+        echo "Valid: ${{ steps.read_outputs.outputs.valid_channels }}" >> $GITHUB_STEP_SUMMARY
