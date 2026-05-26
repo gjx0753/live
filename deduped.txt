@@ -142,7 +142,7 @@ CCTV-3综艺,http://[2409:8087:8:21::18]:6610/otttv.bj.chinamobile.com/PLTV/8888
 CCTV-4,http://107.150.60.122/live/cctv4hd.m3u8,1
 CCTV-4 中文国际,http://148.135.93.213:81/live.php?id=CCTV4,2
 CCTV-4K,http://www.tszhgjj.cn:7000/rtp/239.253.93.134:6631,2
-CCTV-4K 高清,https://live-play-hls.cctvnews.cctv.com/CCTVChannel/channel_cctv4k_mbd.m3u8?auth_key=1779832800-1-b59134a2ead43d7f783f943c8f535e7bb80c5169575b2e8efcd5b3ddea21b41c-327393a9a5466ece0c88af4b5ba2e392&yid=b59134a2ead43d7f783f943c8f535e7bb80c5169575b2e8efcd5b3ddea21b41c,4
+CCTV-4K 高清,https://live-play-hls.cctvnews.cctv.com/CCTVChannel/channel_cctv4k_mbd.m3u8?auth_key=1779835500-1-b59134a2ead43d7f783f943c8f535e7bb80c5169575b2e8efcd5b3ddea21b41c-7be289a21a33873bb8e6a39aa399606d&yid=b59134a2ead43d7f783f943c8f535e7bb80c5169575b2e8efcd5b3ddea21b41c,4
 CCTV-4中文国际,http://[2409:8087:8:21::18]:6610/otttv.bj.chinamobile.com/PLTV/88888888/224/3221226335/1.m3u8?,2
 CCTV-5,http://38.75.136.137:98/gslb/dsdqpub/cctv5hd.m3u8?auth=testpub,1
 CCTV-5 体育,http://148.135.93.213:81/live.php?id=CCTV5,2
@@ -152,6 +152,7 @@ CCTV-5+体育赛事,http://[2409:8087:8:21::18]:6610/otttv.bj.chinamobile.com/PL
 CCTV-5体育,http://[2409:8087:8:21::18]:6610/otttv.bj.chinamobile.com/PLTV/88888888/224/3221226469/1.m3u8?,2
 CCTV-6,http://[2409:8087:1a01:df::4077]/ottrrs.hl.chinamobile.com/PLTV/88888888/224/3221226010/index.m3u8,1
 CCTV-6 电影,http://148.135.93.213:81/live.php?id=CCTV6,2
+CCTV-6 电影频道,https://piccpndks.v.kcdnvip.com/audio/cctv6_2/index.m3u8,4
 CCTV-6电影,http://8.138.7.223/tv/1905.php?id=LIVE3YPYZ30E7V1R0,2
 CCTV-7,http://74.91.26.218:82/live/cctv7hd.m3u8,1
 CCTV-7 国防军事,http://148.135.93.213:81/live.php?id=CCTV7,2
@@ -215,7 +216,6 @@ CETV-3,http://[2409:8087:7004:20:1000::22]:6610/yinhe/2/ch00000090990000001309/i
 CETV-3 教育服务,http://[2409:8087:7004:20:1000::22]:6610/yinhe/2/ch00000090990000001309/index.m3u8?virtualDomain=yinhe.live_hls.zte.com,2
 CETV-4,http://[2409:8087:1a0b:df::4020]:80/ottrrs.hl.chinamobile.com/PLTV/88888888/224/3221225783/index.m3u8,1
 CETV-4 职业教育,http://[2409:8087:1:20:20::26]/otttv.bj.chinamobile.com/PLTV/88888888/224/3221226557/1.m3u8?GuardEncType=2&accountinfo=%7E%7EV2.0%7EBzZToIaOOoaa_jAUfhUQHQ%7E_eNUbgU9sJGUcVVduOMKhafLvQUgE_zlz_7pvDimJNOD9BEmVSNbqSQpqXZxnxbk%2CEND,2
-CGNT 新闻频道,https://english-livebkali.cgtn.com/live/encgtn_0.m3u8,4
 CGTN,http://112.27.235.94:8000/hls/17/index.m3u8,2
 CGTN俄语,http://russian-livews.cgtn.com/hls/LSvexABhNipibK5KRuUkvHZ7220802LSTeze9o8tdFXMHsb1VosgoT220802cd.m3u8,2
 CGTN法语,http://espanol-liveali.cgtn.com/hls/LSveOGBaBw41Ea7ukkVAUdKQ220802LSTexu6xAuFH8VZNBLE1ZNEa220802cd.m3u8,2
@@ -1459,7 +1459,7 @@ viuTV,http://aktv-stream.m16tv.cfd/stream/useradd1/viutv/AKTV.m3u8,2
 湖南国际,http://phonehw.qing.mgtv.com/nn_live/nn_x64/dWlwPTEwMy4zOS4yMjYuMTAwJnFpZD0mY2RuZXhfaWQ9aHdfcGhvbmUmcz0zYTExOGIwNDMyM2Y3Y2EyYjAyZDFjOTE3Yjc4YmU1YSZ1aWQ9JnV1aWQ9OGE4MjU5MWIyOWJkZGMzYWJiNDIxMzFjMmRhNTlkYjMtNjcyN2UyNjQmdj0yJmFzPTAmZXM9MTc0MDQwODkzNA,,/HNGJMPP360.m3u8,2
 湖南国际频道,http://phoneqq.qing.mgtv.com/nn_live/nn_x64/dWlwPTEwNi4xNC4zOC41NSZ0ZXJtPTUmcWlkPSZyYXV0aF9lbmFibGU9b2ZmJmNkbmV4X2lkPXFxX3Bob25lX2xpdmUmY2hzPSZkZWY9MSZzPTE5MmQyOThiMGYxYjI2NzkxMDIxYWQ5ZDZmY2Y0Y2QwJnVpZD0mdXVpZD05NjY4MTJjYzhhZDE2OGFkZmQ0Zjk1MzY3N2RhZTc1Yy02YTBlMjYzNyZ2PTImYXM9MCZlcz0xNzc5Nzk2NTYw/HNGJMPP360.m3u8,4
 湖南娱乐,https://stream1.freetv.fun/hu-nan-yu-le-3.m3u8,1
-湖南娱乐频道,http://phonehwei.qing.mgtv.com/nn_live/nn_x64/dWlwPTEwNi4xNC4zOC41NSZ0ZXJtPTUmcWlkPSZyYXV0aF9lbmFibGU9b2ZmJmNkbmV4X2lkPWh3X3Bob25lJmNocz0mZGVmPTEmcz0xOGYzOWNhOGVkY2FiMzM0YThmMzhkMjE4ODRhMWM0YyZ1aWQ9JnV1aWQ9ZDQyNTY0YzVmNzI1ODdmZDI5YTVlNDY5YWEwMGVkMTMtNmEwZTI2Mzcmdj0yJmFzPTAmZXM9MTc3OTc4MTA4Nw,,/HNYLMPP360.m3u8,4
+湖南娱乐频道,http://phoneqq.qing.mgtv.com/nn_live/nn_x64/dWlwPTEwNi4xNC4zOC41NSZ0ZXJtPTUmcWlkPSZyYXV0aF9lbmFibGU9b2ZmJmNkbmV4X2lkPXFxX3Bob25lX2xpdmUmY2hzPSZkZWY9MSZzPTFmNzU2YmVkNTBiYTE4ZTZmYmFkMjBmMjdiNjM3ZWU0JnVpZD0mdXVpZD02YjIyNGM1NjQ0Nzg3ZmRiNmVjNjY5ZjZiZTVlYTY1ZS02YTBlMjYzNyZ2PTImYXM9MCZlcz0xNzc5ODEwMjU3/HNYLMPP360.m3u8,4
 湖南张家界天门山西线玻璃栈道,https://gcalic.v.myalicdn.com/gc/tms05_1/index.m3u8,2
 湖南张家界宝峰湖,https://gcalic.v.myalicdn.com/gc/zjjbfh_1/index.m3u8,2
 湖南张家界御笔峰,https://gcalic.v.myalicdn.com/gc/zjjybf_1/index.m3u8,2

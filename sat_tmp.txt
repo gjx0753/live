@@ -5,15 +5,10 @@
 东方卫视4K,http://bp-resource-dfl.bestv.cn/148/3/video.m3u8
 云南卫视,http://38.75.136.137:98/gslb/dsdqpub/ynwshd.m3u8?auth=testpub
 人间卫视,http://61.216.67.119:1935/bltvhd/bltv1/chunklist_w1266569526.m3u
-内蒙古卫视,http://198.204.228.26/live/nmgws.m3u8
 兵团卫视,http://218.13.170.98:9901/tsfile/live/0115_1.m3u8
-凤凰中文,http://cdn6.163189.xyz/163189/fhzw
-凤凰中文高清,http://cdn6.163189.xyz/163189/fhzw
-凤凰卫视台,http://php.jdshipin.com/TVOD/iptv.php?id=fhzw
-凤凰资讯高清,http://cdn6.163189.xyz/163189/fhzx
+内蒙古卫视,http://198.204.228.26/live/nmgws.m3u8
 农林卫视,http://120.76.248.139/live/bfgd/4200000122.m3u8
-凤凰资讯,http://61.221.215.25:8800/hls/47/index.m3u8
-凤凰香港高清,http://cdn6.163189.xyz/163189/fhhk
+凤凰卫视台,http://php.jdshipin.com/TVOD/iptv.php?id=fhzw
 北京卫视,http://38.75.136.137:98/gslb/dsdqpub/bjwshd.m3u8?auth=testpub
 厦门卫视,https://epg.pw/stream/aa65dd411565991ace44f9e5934bd018fdd52122e052d471a363b6ee839e1079.ctv
 四川卫视,http://38.75.136.137:98/gslb/dsdqpub/scwshd.m3u8?auth=testpub
@@ -21,7 +16,6 @@
 宁夏卫视,http://107.150.60.122/live/nxws.m3u8
 安徽卫视,http://38.75.136.137:98/gslb/dsdqpub/ahwshd.m3u8?auth=testpub
 广东卫视,http://38.75.136.137:98/gslb/dsdqpub/gdwshd.m3u8?auth=testpub
-广东珠江,http://cdn2.163189.xyz/live/gdzj/stream.m3u8
 广西卫视,http://107.150.60.122/live/gxwshd.m3u8
 新疆卫视,http://107.150.60.122/live/xjws.m3u8
 江苏卫视4K,http://8.138.7.223/tv/jsws4k.php
