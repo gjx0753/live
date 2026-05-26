@@ -1,0 +1,290 @@
+name: Enhanced TV Source Manager
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' # 每6小时运行一次
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y jq
+
+    - name: Fetch, Validate, Categorize and Merge
+      run: |
+        echo "==================== 开始高级抓取任务 ===================="
+        
+        # 初始化文件
+        > live_all_raw.txt
+        > live_valid.txt
+        > failed_sources.txt
+        > validation_report.txt
+        
+        # 优先级定义 (数值越小优先级越高，重复时保留优先级高的)
+        # 格式: "关键词=优先级数值"
+        declare -A SOURCE_PRIORITY=(
+          ["Guovin"]=10
+          ["fanmingming"]=20
+          ["YueChan"]=30
+          ["myIPTV"]=40
+          ["Default"]=99
+        )
+
+        # 统计变量
+        declare -i total_fetched=0
+        declare -i valid_channels=0
+        declare -i invalid_channels=0
+
+        # ==========================================
+        # 1. 格式转换与抓取函数
+        # ==========================================
+        convert_m3u_to_txt() {
+          awk 'BEGIN { channel="" } 
+               /^#EXTINF/ { 
+                 n=split($0, a, ","); 
+                 channel=a[n]; 
+                 gsub(/^[[:space:]]+|[[:space:]]+$/, "", channel);
+                 next 
+               } 
+               /^http/ { 
+                 if (channel != "") { 
+                   print channel "," $0; 
+                   channel="" 
+                 } else { 
+                   print $0 
+                 } 
+               }'
+        }
+
+        fetch_and_merge() {
+          local url="$1"
+          local source_name="$2"
+          local priority_val="${SOURCE_PRIORITY[$source_name]:-${SOURCE_PRIORITY[Default]}}"
+          
+          echo "  [抓取] $source_name (优先级: $priority_val)"
+          
+          local raw_content=$(curl -sL --connect-timeout 10 --max-time 20 -k "$url" 2>/dev/null) || true
+          
+          if [ -z "$raw_content" ]; then
+            echo "    ❌ 失败"
+            echo "$source_name ($url)" >> failed_sources.txt
+            return
+          fi
+          
+          # 转换并添加优先级标记 (格式: 频道名,URL,优先级)
+          if [[ "$raw_content" == *"EXTINF"* ]]; then
+            echo "$raw_content" | convert_m3u_to_txt | awk -v prio="$priority_val" '{print $0 "," prio}' >> live_all_raw.txt
+          else
+            echo "$raw_content" | awk -v prio="$priority_val" '{print $0 "," prio}' >> live_all_raw.txt
+          fi
+          
+          total_fetched=$((total_fetched + 1))
+        }
+
+        # ==========================================
+        # 2. 执行抓取
+        # ==========================================
+        echo "--- 步骤 1/4: 抓取源列表 ---"
+        
+        # 核心/高优先级源
+        fetch_and_merge "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/ipv6/result.m3u" "Guovin-IPv6"
+        fetch_and_merge "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/ipv4/result.m3u" "Guovin-IPv4"
+        fetch_and_merge "https://live.fanmingming.cn/tv/m3u/ipv6.m3u" "fanmingming"
+        
+        # 次级源
+        fetch_and_merge "https://raw.githubusercontent.com/jn950/live/main/tv/pllive.txt" "jn950"
+        fetch_and_merge "https://raw.githubusercontent.com/YueChan/Live/main/GNTV.m3u" "YueChan-GNTV"
+        fetch_and_merge "https://raw.githubusercontent.com/YueChan/Live/main/Global.m3u" "YueChan-Global"
+        fetch_and_merge "https://raw.githubusercontent.com/YueChan/Live/main/Hunan.txt" "YueChan-Hunan"
+        fetch_and_merge "https://raw.githubusercontent.com/YueChan/Live/main/IPTV.m3u" "YueChan-IPTV"
+        fetch_and_merge "https://raw.githubusercontent.com/YueChan/Live/main/Radio.m3u" "YueChan-Radio"
+        fetch_and_merge "https://tv.iill.top/m3u/Gather" "YanG-1989"
+        fetch_and_merge "https://live.zbds.org/tv/iptv6.m3u" "vbskycn-IPv6"
+        fetch_and_merge "https://live.zbds.org/tv/iptv4.m3u" "vbskycn-IPv4"
+        fetch_and_merge "https://raw.githubusercontent.com/Kimentanm/aptv/master/m3u/iptv.m3u" "Kimentanm"
+        fetch_and_merge "https://raw.githubusercontent.com/BurningC4/Chinese-IPTV/master/TV-IPV4.m3u" "BurningC4"
+        fetch_and_merge "https://raw.githubusercontent.com/zwc456baby/iptv_alive/refs/heads/master/live.m3u" "zwc456baby"
+        fetch_and_merge "https://raw.githubusercontent.com/hujingguang/ChinaIPTV/main/cnTV_AutoUpdate.m3u8" "ChinaIPTV"
+        fetch_and_merge "https://raw.githubusercontent.com/suxuang/myIPTV/refs/heads/main/ipv4.m3u" "myIPTV-IPv4"
+        fetch_and_merge "https://raw.githubusercontent.com/suxuang/myIPTV/refs/heads/main/ipv6.m3u" "myIPTV-IPv6"
+        fetch_and_merge "http://tttttt.tttttttttt.top/jk.txt" "传说引导页"
+        fetch_and_merge "https://m3u.ibert.me/fmml_ipv6.m3u" "iptv-sources"
+        fetch_and_merge "https://raw.githubusercontent.com/joevess/IPTV/main/m3u/iptv.m3u" "joevess"
+        fetch_and_merge "https://raw.githubusercontent.com/Ftindy/IPTV-URL/main/IPV6.m3u" "Ftindy"
+        fetch_and_merge "https://aktv.space/live.m3u" "AKTV"
+
+        echo "    🎉 抓取完成，共获取 $total_fetched 个源"
+
+        # ==========================================
+        # 3. 智能去重 (基于频道名，保留优先级最高的 URL)
+        # ==========================================
+        echo "--- 步骤 2/4: 智能去重 ---"
+        
+        # 逻辑: 按频道名分组，按优先级排序，取第一条
+        # 输出格式恢复: 频道名,URL (去除优先级标记)
+        awk -F',' '
+        {
+          channel = $1;
+          url = $2;
+          priority = $3;
+          # 使用频道名作为key，存储 URL 和 优先级
+          if (!(channel in data)) {
+            data[channel] = url;
+            prio[channel] = priority;
+          } else {
+            if (priority < prio[channel]) {
+              data[channel] = url;
+              prio[channel] = priority;
+            }
+          }
+        }
+        END {
+          for (channel in data) {
+            print channel "," data[channel];
+          }
+        }' live_all_raw.txt > live_deduped.txt
+        
+        echo "    ✅ 去重完成"
+
+        # ==========================================
+        # 4. 链接可用性验证 (核心优化)
+        # ==========================================
+        echo "--- 步骤 3/4: 链接有效性验证 (耗时较长，请耐心) ---"
+        
+        while IFS= read -r line; do
+          channel_name="${line%%,*}"
+          url="${line##*,}"
+          
+          # 只检查 http 链接
+          if [[ "$url" == http* ]]; then
+            # 使用 curl -I 获取头信息，检查 HTTP 状态码
+            # --max-time 3 防止卡死，-s 静默
+            status=$(curl -I -s -o /dev/null -w "%{http_code}" --connect-timeout 3 --max-time 5 "$url")
+            
+            # 如果状态码是 200, 206, 302, 301 视为有效
+            if [[ "$status" =~ ^[23][0-9]{2}$ ]]; then
+              echo "$line" >> live_valid.txt
+              valid_channels=$((valid_channels + 1))
+            else
+              echo "    ❌ [$status] $channel_name" >> validation_report.txt
+              invalid_channels=$((invalid_channels + 1))
+            fi
+          else
+            # 非http链接直接保留
+            echo "$line" >> live_valid.txt
+            valid_channels=$((valid_channels + 1))
+          fi
+          
+          # 进度显示 (每处理50行打印一次)
+          if (( $valid_channels + $invalid_channels % 50 == 0 )); then
+            echo -n "."
+          fi
+        done < live_deduped.txt
+        
+        echo ""
+        echo "    ✅ 验证完成: 有效 $valid_channels, 无效 $invalid_channels"
+
+        # ==========================================
+        # 5. 自动分类生成
+        # ==========================================
+        echo "--- 步骤 4/4: 自动分类 ---"
+        
+        # 定义分类关键词
+        local cctv_keywords="CCTV|央视"
+        local satellite_keywords="卫视|湖南|浙江|江苏|东方|北京"
+        
+        # 生成主文件 live.txt
+        cp live_valid.txt live.txt
+        
+        # 央视分类
+        grep -iE "$cctv_keywords" live_valid.txt > CCTV.txt || true
+        
+        # 卫视分类
+        grep -iE "$satellite_keywords" live_valid.txt > Satellite.txt || true
+        
+        # 其他/地方台 (排除央视和卫视)
+        grep -viE "$cctv_keywords|$satellite_keywords" live_valid.txt > Regional.txt || true
+        
+        echo "    📂 分类文件已生成"
+
+    - name: Upload Reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: reports
+        path: |
+          failed_sources.txt
+          validation_report.txt
+
+    - name: Commit and Push
+      run: |
+        git config --global user.name "GitHub Action"
+        git config --global user.email "action@github.com"
+        
+        # 添加所有生成的文件
+        git add live.txt CCTV.txt Satellite.txt Regional.txt
+        
+        if git diff --staged --quiet; then
+          echo "🤷‍♂️ 无变化，跳过提交"
+          echo "SKIP_PUSH=true" >> $GITHUB_ENV
+        else
+          git commit -m "📅 Auto Update: $(date '+%Y-%m-%d %H:%M')
+          - Valid: ${{ env.valid_count }}
+          - Invalid: ${{ env.invalid_count }}"
+          git push
+          echo "🚀 推送成功"
+          echo "SKIP_PUSH=false" >> $GITHUB_ENV
+        fi
+
+    - name: Send Telegram Notification
+      if: always()
+      env:
+        TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      run: |
+        # 统计行数
+        if [ -f live.txt ]; then
+          total=$(wc -l < live.txt)
+          cctv=$(wc -l < CCTV.txt 2>/dev/null || echo 0)
+          sat=$(wc -l < Satellite.txt 2>/dev/null || echo 0)
+          reg=$(wc -l < Regional.txt 2>/dev/null || echo 0)
+          failed=$(wc -l < failed_sources.txt 2>/dev/null || echo 0)
+        else
+          total=0; cctv=0; sat=0; reg=0; failed=0
+        fi
+        
+        # 构建消息内容
+        STATUS="✅ 任务完成"
+        if [ "$SKIP_PUSH" = "true" ]; then
+          STATUS="ℹ️ 无需更新"
+        fi
+        
+        MESSAGE="📺 **IPTV 源更新报告**
+        $STATUS
+        
+        📊 **统计信息:**
+        📡 总频道数: $total
+        🏛️ 央视频道: $cctv
+        📡 卫视频道: $sat
+        🏙️ 地方频道: $reg
+        ⚠️ 失败源数: $failed
+        
+        🕒 更新时间: $(date '+%Y-%m-%d %H:%M:%S UTC')
+        🤖 运行平台: GitHub Actions"
+        
+        # 发送消息
+        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+          -d chat_id="${TELEGRAM_CHAT_ID}" \
+          -d parse_mode="Markdown" \
+          -d text="${MESSAGE}"
