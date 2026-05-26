@@ -1,0 +1,135 @@
+name: Fetch and Merge TV Sources m3u & txt
+
+on:
+  schedule:
+    - cron: '0 2,14 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Fetch and Merge URLs
+      run: |
+        echo "Starting fetch..."
+        > live.txt
+        
+        # 定义格式转换函数 (M3U转TXT)
+        convert_m3u_to_txt() {
+          awk 'BEGIN { channel="" } /^#EXTINF/ { n=split($0, a, ","); channel=a[n]; next } /^http/ { if (channel != "") { print channel "," $0; channel="" } else { print $0 } }'
+        }
+        
+        # 定义安全抓取函数 (自动识别并转换)
+        fetch_and_merge() {
+          local url="$1"
+          local is_m3u="$2"
+          
+          echo "Fetching $url..."
+          # 核心修复：加上 || true，防止单个链接失败导致整个脚本退出
+          raw_content=$(curl -sL --connect-timeout 10 --max-time 20 -k "$url" 2>/dev/null) || true
+          
+          if [ -z "$raw_content" ]; then
+            echo "Warning: Failed to fetch or empty response from $url"
+            return
+          fi
+          
+          # 判断是否需要转换
+          if [[ "$is_m3u" == "m3u" ]] || [[ "$raw_content" == *"EXTINF"* ]]; then
+            echo "Detected M3U format, converting to TXT..."
+            echo "$raw_content" | convert_m3u_to_txt >> live.txt
+          else
+            echo "Detected TXT format, appending directly..."
+            echo "$raw_content" >> live.txt
+          fi
+          
+          echo "" >> live.txt
+        }
+
+        # 开始抓取 (即使某一个家宽连不上，也不会影响其他源)
+        
+        # 抓取1 (GitHub源，肯定能通)
+        fetch_and_merge "https://raw.githubusercontent.com/jn950/live/main/tv/pllive.txt"
+        
+
+                # 抓取2
+        fetch_and_merge "https://raw.githubusercontent.com/YueChan/Live/main/GNTV.m3u"
+
+        # 抓取3
+        fetch_and_merge "https://raw.githubusercontent.com/YueChan/Live/main/Global.m3u"
+
+        # 抓取4
+        fetch_and_merge "https://raw.githubusercontent.com/YueChan/Live/main/Hunan.txt"
+
+                # 抓取5
+        fetch_and_merge "https://raw.githubusercontent.com/YueChan/Live/main/IPTV.m3u"
+
+                # 抓取6
+        fetch_and_merge "https://raw.githubusercontent.com/YueChan/Live/main/Radio.m3u"
+        
+                # 抓取7 (YanG-1989)
+        fetch_and_merge "https://tv.iill.top/m3u/Gather"
+        
+        # 抓取8 (vbskycn)
+        fetch_and_merge "https://live.zbds.org/tv/iptv6.m3u"
+
+        # 抓取9 (vbskycn)
+        fetch_and_merge "https://live.zbds.org/tv/iptv4.m3u"
+
+        # 抓取10 (Guovin)
+        fetch_and_merge "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/ipv6/result.m3u"
+
+        # 抓取11 (Guovin)
+        fetch_and_merge "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/ipv4/result.m3u"
+
+        # 抓取12 (fanmingming)
+        fetch_and_merge "https://live.fanmingming.cn/tv/m3u/ipv6.m3u"
+
+        # 抓取13 (Kimentanm)
+        fetch_and_merge "https://raw.githubusercontent.com/Kimentanm/aptv/master/m3u/iptv.m3u"
+
+        # 抓取14 (BurningC4)
+        fetch_and_merge "https://raw.githubusercontent.com/BurningC4/Chinese-IPTV/master/TV-IPV4.m3u"
+
+        # 抓取15 (zwc456baby)
+        fetch_and_merge "https://raw.githubusercontent.com/zwc456baby/iptv_alive/refs/heads/master/live.m3u"
+
+        # 抓取16 ChinaIPTV)
+        fetch_and_merge "https://raw.githubusercontent.com/hujingguang/ChinaIPTV/main/cnTV_AutoUpdate.m3u8"
+
+        # 抓取17 (myIPTV)
+        fetch_and_merge "https://raw.githubusercontent.com/suxuang/myIPTV/refs/heads/main/ipv4.m3u"
+
+        # 抓取18 (myIPTV)
+        fetch_and_merge "https://raw.githubusercontent.com/suxuang/myIPTV/refs/heads/main/ipv6.m3u"
+
+        # 抓取19 传说引导页)
+        fetch_and_merge "http://tttttt.tttttttttt.top/jk.txt"
+
+        # 抓取20 (iptv-sources)
+        fetch_and_merge "https://m3u.ibert.me/fmml_ipv6.m3u"
+
+        # 抓取21 joevess)
+        fetch_and_merge "https://raw.githubusercontent.com/joevess/IPTV/main/m3u/iptv.m3u"
+
+        # 抓取22 Ftindy)
+        fetch_and_merge "https://raw.githubusercontent.com/Ftindy/IPTV-URL/main/IPV6.m3u"
+
+        # 抓取23 (AKTV)
+        fetch_and_merge "https://aktv.space/live.m3u"
+        
+        echo "Fetch and merge completed!"
+        echo "Total lines in live.txt: $(wc -l < live.txt)"
+
+    - name: Commit and Push changes
+      run: |
+        git config --global user.name "GitHub Action"
+        git config --global user.email "action@github.com"
+        git add live.txt
+        git diff --staged --quiet || git commit -m "Auto update live.txt (M3U converted if needed)"
+        git push
