@@ -1,0 +1,130 @@
+name: IPTV Auto Update 5
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        # 显式声明 Node.js 兼容性（可选，消除警告）
+        persist-credentials: false
+
+    - name: Run Merge & Validate
+      env:
+        # 防止 curl SSL 错误
+        SSL_CERT_FILE: /etc/ssl/certs/ca-certificates.crt
+      run: |
+        set -e  # 任何错误立即退出
+        set -o pipefail  # 管道中任何错误立即退出
+
+        echo "======================================"
+        echo "Step 1: Fetching sources..."
+        echo "======================================"
+        
+        # 清空临时文件
+        : > raw.txt
+        : > fetched.log
+
+        # 定义获取函数（增强错误处理）
+        fetch() {
+          local name="$1"
+          local url="$2"
+          echo "Fetching $name..."
+          
+          # 15 秒超时，失败不影响其他源
+          local data=$(curl -sL --connect-timeout 10 --max-time 15 -k "$url" 2>&1 || echo "FAIL")
+          
+          if [ "$data" = "FAIL" ] || [ -z "$data" ]; then
+            echo "  [$name] ❌ FAILED" >> fetched.log
+            return 1
+          else
+            echo "$data" >> raw.txt
+            echo "  [$name] ✅ OK ($(echo "$data" | wc -c) bytes)"
+            return 0
+          record_count "$name" "$(echo "$data" | wc -l)"
+          fi
+        }
+
+        fetch "G6" "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/ipv6/result.m3u"
+        fetch "G4" "https://raw.githubusercontent.com/Guovin/iptv-api/gb/output/ipv4/result.m3u"
+        fetch "EG" "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/result.m3u"
+        fetch "Fan" "https://live.fanmingming.cn/tv/m3u/ipv6.m3u"
+        fetch "Jn" "https://raw.githubusercontent.com/jn950/live/main/tv/pllive.txt"
+        fetch "YueG" "https://raw.githubusercontent.com/YueChan/Live/main/GNTV.m3u"
+        fetch "YueGl" "https 头部信息
+            # 允许 200, 206, 302, 301, 405 (有些流不允许 HEAD)
+            if [[ "$code" =~ ^(200|206|302|301|405)$ ]]; then
+              echo "$line"
+            fi
+          fi
+        }
+
+        export -f check_url
+        
+        cat parsed_data.txt | xargs -P 30 -I {} bash -c 'check_url "$@"' _ {} 2>/dev/null || true
+      } >> valid_urls.txt
+
+      # 如果没有有效链接，给出提示但不退出
+      if [ ! -s valid_urls.txt ]; then
+        echo "⚠️ Warning: No valid links found!"
+        : > live.txt
+      else
+        # 生成最终的 live.txt
+        awk -F',' '
+        BEGIN {
+          delete seen;
+        }
+        {
+          name = $1; url = $2; group = $3;
+          gsub(/^[ \t]+|[ \t]+$/, "", name);
+          gsub(/^[ \t]+|[ \t]+$/, "", url);
+          gsub(/^[ \t]+|[ \t]+$/, "", group);
+
+          key = name "," url;
+
+          if (url != "" && !seen[key]++) {
+            if (group != "" && group != "Live" && !group_printed[group]++) {
+              print group ",#genre#"
+            }
+            print name "," url
+          }
+        }
+        ' valid_urls.txt > live.txt
+
+        echo "✅ Done. Valid lines: $(wc -l < live.txt)"
+      fi
+
+    - name: Generate Summary
+      if: always()
+      run: |
+        echo "## 📊 Workflow Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Source | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|--------|--------|" >> $GITHUB_STEP_SUMMARY
+        if [ -f fetched.log ]; then
+          cat fetched.log >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📈 Final Result" >> $GITHUB_STEP_SUMMARY
+        if [ -f live.txt ]; then
+          echo "- **Total lines**: $(wc -l < live.txt)" >> $GITHUB_STEP_SUMMARY
+        fi
+
+    - name: Commit
+      run: |
+        git config --global user.name "Bot"
+        git config --global user.email "bot@github.com"
+        git add live.txt CCTV.txt Satellite.txt
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "Auto Update: $(date +'%Y-%m-%d %H:%M:%S')"
+          git push
+        fi
