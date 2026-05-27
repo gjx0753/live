@@ -1,0 +1,195 @@
+name: IPTV Auto Update 5
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Run Merge & Validate
+      run: |
+        echo "Start Processing..."
+        : > raw.txt
+        
+        # 1. 并发下载所有源
+        echo "Fetching sources..."
+        fetch() {
+          local name="$1"
+          local url="$2"
+          echo "Fetching $name..."
+          # 增加 --max-time 10 防止某个源卡住整个流程
+          local data=$(curl -sL --connect-timeout 10 --max-time 20 -k "$url" 2>&1)
+          if [ -n "$data" ]; then
+            echo "$data" >> raw.txt
+            echo "  [$name] OK"
+          else
+            echo "  [$name] FAIL"
+          fi
+        }
+
+        fetch "G6" "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/ipv6/result.m3u"
+        fetch "Fan" "https://live.fanmingming.cn/tv/m3u/ipv6.m3u"
+        fetch "Jn" "https://raw.githubusercontent.com/jn950/live/main/tv/pllive.txt"
+        fetch "YueG" "https://raw.githubusercontent.com/YueChan/Live/main/GNTV.m3u"
+        fetch "YueGl" "https://raw.githubusercontent.com/YueChan/Live/main/Global.m3u"
+        fetch "YueH" "https://raw.githubusercontent.com/YueChan/Live/main/Hunan.txt"
+        fetch "YueI" "https://raw.githubusercontent.com/YueChan/Live/main/IPTV.m3u"
+        fetch "YueR" "https://raw.githubusercontent.com/YueChan/Live/main/Radio.m3u"
+
+        fetch "Zb6" "https://live.zbds.org/tv/iptv6.m3u"
+        fetch "Zb4" "https://live.zbds.org/tv/iptv4.m3u"
+        fetch "Kim" "https://raw.githubusercontent.com/Kimentanm/aptv/master/m3u/iptv.m3u"
+        fetch "Burn" "https://raw.githubusercontent.com/BurningC4/Chinese-IPTV/master/TV-IPV4.m3u"
+        fetch "Zwc" "https://raw.githubusercontent.com/zwc456baby/iptv_alive/refs/heads/master/live.m3u"
+        fetch "Huj" "https://raw.githubusercontent.com/hujingguang/ChinaIPTV/main/cnTV_AutoUpdate.m3u8"
+        fetch "Su4" "https://raw.githubusercontent.com/suxuang/myIPTV/refs/heads/main/ipv4.m3u"
+        fetch "Su6" "https://raw.githubusercontent.com/suxuang/myIPTV/refs/heads/main/ipv6.m3u"
+
+        # 2. 初始去重
+        echo "Deduplicating raw content..."
+        if [ -s raw.txt ]; then
+          awk '!seen[$0]++' raw.txt > merged.m3u
+        else
+          echo "Error: No raw content downloaded."
+          exit 1
+        fi
+
+        # 3. 解析并转换为标准 TXT 格式 (频道名,URL,分组)
+        echo "Converting to TXT format..."
+        awk '
+        BEGIN { 
+          info=""; name=""; group=""; 
+          # 预定义一些可能的 TXT 关键词作为分组 (如果原源没有)
+          default_group = "Live" 
+        }
+        {
+          line = $0;
+          # 去除 BOM 和空白
+          gsub(/^[ \t\r]+|[ \t\r]+$/, "", line);
+          if (line == "") next;
+
+          # --- 处理 M3U 格式 ---
+          if (line ~ /^#EXTINF/) {
+            info = line;
+            name = "";
+            group = "";
+            # 提取 group-title
+            if (match(info, /group-title="([^"]+)"/, arr)) {
+              group = arr[1];
+            }
+            # 提取名字 (逗号后面)
+            if ((n = split(info, arr, ",")) > 1) {
+              name = arr[n];
+              gsub(/^[ \t]+|[ \t]+$/, "", name);
+            }
+            next;
+          }
+          if (line ~ /^#EXTGRP/) {
+            sub(/^#EXTGRP:/, "", line);
+            gsub(/^[ \t]+|[ \t]+$/, "", line);
+            group = line;
+            next;
+          }
+
+          # --- 处理 URL (M3U 或 TXT) ---
+          if (line ~ /^http/ || line ~ /^rtmp/ || line ~ /^rtp/) {
+            # 如果之前有 EXTINF 信息 (M3U模式)
+            if (info != "" && name != "") {
+              print name "," line "," group;
+              info=""; name=""; group="";
+            } 
+            # 否则是 TXT 模式，检查是否包含逗号 (名字,URL)
+            else if (line ~ /,/) {
+              n = split(line, arr, ",");
+              # 如果拆分后第二部分是URL
+              if (n >= 2 && (arr[2] ~ /^http/ || arr[2] ~ /^rtmp/)) {
+                print arr[1] "," arr[2] "," ""; 
+              }
+            }
+            # 兜底：纯URL行，直接输出，名字留空或用默认
+            else {
+               print "Unknown," line "," default_group;
+            }
+            next;
+          }
+
+          # --- 处理 TXT 分组头 ---
+          if (line ~ /#genre#/) {
+            # 这里的分组头暂时无法直接关联到下面的链接，
+            # 除非有复杂的上下文管理。
+            # 简化处理：暂不提取 TXT 分组头，依赖 M3U 的 group-title
+            next;
+          }
+        }
+        ' merged.m3u > parsed_data.txt
+
+        # 4. 并发有效性验证 (极速模式)
+        echo "Validating links (30 concurrent)..."
+        # 临时文件存放验证结果
+        rm -rf valid_urls.txt
+        touch valid_urls.txt
+        
+        # 使用 xargs 实现并发
+        # export -f check_url 定义函数以便 xargs 调用 (Bash 4+)
+        
+        # 直接在 xargs 中执行 curl，避免函数定义复杂性
+        cat parsed_data.txt | xargs -P 30 -I {} bash -c '
+          line="{}"
+          url=$(echo "$line" | cut -d"," -f2)
+          # 5秒超时，只要返回头信息
+          code=$(curl -I -s -o /dev/null -w "%{http_code}" --connect-timeout 3 --max-time 5 -k "$url" 2>/dev/null)
+          # 只要 2xx, 3xx, 405(HEAD不支持但可能可用) 都算可能有效
+          if echo "$code" | grep -qE "^(200|206|302|301|405)"; then
+             echo "$line"
+          fi
+        ' >> valid_urls.txt
+
+        # 5. 生成最终的 live.txt (添加分组头)
+        echo "Generating final live.txt..."
+        
+        awk -F',' '
+        BEGIN {
+          # 去重数组
+          delete seen;
+        }
+        {
+          name = $1; url = $2; group = $3;
+          
+          # 去除首尾空格
+          gsub(/^[ \t]+|[ \t]+$/, "", name);
+          gsub(/^[ \t]+|[ \t]+$/, "", url);
+          gsub(/^[ \t]+|[ \t]+$/, "", group);
+
+          # 唯一键 (Name + URL)
+          key = name "," url;
+
+          if (url != "" && !seen[key]++) {
+            # 如果分组不为空且之前没输出过该分组头
+            if (group != "" && group != "Live" && !group_printed[group]++) {
+              print group ",#genre#";
+            }
+            # 输出链接行
+            print name "," url
+          }
+        }
+        ' valid_urls.txt > live.txt
+
+        # 6. 生成分类文件 (兼容原逻辑)
+        grep -i "CCTV" live.txt > CCTV.txt 2>/dev/null || touch CCTV.txt
+        grep -i "卫视" live.txt > Satellite.txt 2>/dev/null || touch Satellite.txt
+
+        echo "Done. Valid lines: $(wc -l < live.txt)"
+
+    - name: Commit
+      run: |
+        git config --global user.name "Bot"
+        git config --global user.email "bot@github.com"
+        git add live.txt CCTV.txt Satellite.txt
+        git diff --staged --quiet || git commit -m "Auto Update TXT"
+        git push
