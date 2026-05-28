@@ -89,11 +89,7 @@ jobs:
         parse_and_append "https://raw.githubusercontent.com/hujingguang/ChinaIPTV/main/cnTV_AutoUpdate.m3u8" "Huj"
         parse_and_append "https://raw.githubusercontent.com/suxuang/myIPTV/refs/heads/main/ipv4.m3u" "Su4"
         parse_and_append "https://raw.githubusercontent.com/suxuang/myIPTV/refs/heads/main/ipv6.m3u" "Su6"
-        parse_and_append "http://tttttt.tttttttttt.top/jk.txt" "Ttt"
-        parse_and_append "https://m3u.ibert.me/fmml_ipv6.m3u" "Iber"
-        parse_and_append "https://raw.githubusercontent.com/joevess/IPTV/main/m3u/iptv.m3u" "Joe"
-        parse_and_append "https://raw.githubusercontent.com/Ftindy/IPTV-URL/main/IPV6.m3u" "Ft"
-        parse_and_append "https://aktv.space/live.m3u" "Aktv"
+        parse_and_append "http://iptv.4666888.xyz/FYTV.m3u" "aptv4666888"
 
         # ==========================================
         # 第二步：精准去重
