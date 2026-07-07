@@ -1,8 +1,7 @@
 春晚2025,https://res.cctvnews.cctv.com/video/3005/record/cctv/merge1/133396667284143308839013005/8fbd6180bdef4da19f6155cf6b4652e1-4.m3u8
-CCTV-4 中文国际,https://live-play-hls.cctvnews.cctv.com/CCTVChannel/channel_cctv4_mbd.m3u8?auth_key=1783418400-1-b59134a2ead43d7f783f943c8f535e7bb80c5169575b2e8efcd5b3ddea21b41c-274bfd3d227155bc9d197ee08b3d5093&yid=b59134a2ead43d7f783f943c8f535e7bb80c5169575b2e8efcd5b3ddea21b41c
-CCTV-4K 高清,https://live-play-hls.cctvnews.cctv.com/CCTVChannel/channel_cctv4k_mbd.m3u8?auth_key=1783418400-1-b59134a2ead43d7f783f943c8f535e7bb80c5169575b2e8efcd5b3ddea21b41c-194174b5517087ceff4e6fa2d1b9097c&yid=b59134a2ead43d7f783f943c8f535e7bb80c5169575b2e8efcd5b3ddea21b41c
-CCTV-9 纪录,https://v4-702cae17a28d6e4f0c0002bba021d934.livehwc4.com/play.kankanlive.com/live/1698423397390920.m3u8?sub_m3u8=true&edge_slice=true&user_session_id=7e05c5e65d849e58bc0eb2ad29b39dba
-CCTV-15 音乐,https://piccpndks.v.kcdnvip.com/audio/cctv15_2/index.m3u8
+CCTV-4 中文国际,https://live-play-hls.cctvnews.cctv.com/CCTVChannel/channel_cctv4_mbd.m3u8?auth_key=1783447200-1-b59134a2ead43d7f783f943c8f535e7bb80c5169575b2e8efcd5b3ddea21b41c-285e7caefbcb1c7296a83cbfc82a5fdb&yid=b59134a2ead43d7f783f943c8f535e7bb80c5169575b2e8efcd5b3ddea21b41c
+CCTV-4K 高清,https://live-play-hls.cctvnews.cctv.com/CCTVChannel/channel_cctv4k_mbd.m3u8?auth_key=1783447200-1-b59134a2ead43d7f783f943c8f535e7bb80c5169575b2e8efcd5b3ddea21b41c-a1b67b01b99c5cb51ea700f4d051158f&yid=b59134a2ead43d7f783f943c8f535e7bb80c5169575b2e8efcd5b3ddea21b41c
+CCTV-9 纪录,https://v4-702cae17a28d6e4f0c0002bba021d934.livehwc4.com/play.kankanlive.com/live/1698423397390920.m3u8?sub_m3u8=true&edge_slice=true&user_session_id=687d51dde17b4d95c1697fff079bf890
 CCTV4K真4K,http://vip1.xinketongxun.fun:8082/tsfile/live/1026_1.m3u8
 CCTV15,http://p.ytelc.com/169l/0/cctv.php?id=cctv15
 CCTV16,http://p.ytelc.com/169l/0/cctv.php?id=cctv16
@@ -94,7 +93,7 @@ CCTV-2财经,http://221.219.104.6:1193/rtp/239.3.1.60:8084
 CCTV-2财经,http://183.47.2.156:16883/udp/239.77.1.158:5146
 CCTV-2财经,http://113.81.20.24:8188/udp/239.77.1.158:5146
 CCTV4K,http://116.233.67.80:8899/rtp/233.18.204.188:5140
-CCTV16 4K,http://116.233.67.80:8899/rtp/233.18.204.215:5140
+CCTV16 4K,http://116.233.67.80:8899/rtp/233.18.204.114:5140
 CCTV4K,http://58.37.29.210:9001/rtp/233.18.204.188:5140
 CCTV4K,http://58.37.29.210:9001/rtp/233.18.204.204:5140
 CCTV16 4K,http://58.37.29.210:9001/rtp/233.18.204.114:5140
@@ -111,8 +110,11 @@ CCTV4K,http://182.135.66.163:18888/rtp/239.94.0.20:5140
 CCTV4K,http://182.135.66.163:18888/rtp/239.94.2.163:5140
 CCTV1HD,http://116.233.67.80:8899/rtp/233.18.204.168:5140
 CCTV1HD,http://116.233.67.80:8899/rtp/233.18.204.52:5140
-CCTV5+HD,http://116.233.67.80:8899/rtp/233.18.204.67:5140
-CCTV6HD,http://116.233.67.80:8899/rtp/233.18.204.72:5140
+CCTV2HD,http://116.233.67.80:8899/rtp/233.18.204.68:5140
+CCTV4HD,http://116.233.67.80:8899/rtp/233.18.204.70:5140
+CCTV5HD,http://116.233.67.80:8899/rtp/233.18.204.71:5140
+CCTV8HD,http://116.233.67.80:8899/rtp/233.18.204.74:5140
+CCTV17HD,http://116.233.67.80:8899/rtp/233.18.204.83:5140
 CCTV1HD,http://58.37.29.210:9001/rtp/233.18.204.168:5140
 CCTV1HD,http://58.37.29.210:9001/rtp/233.18.204.52:5140
 CCTV2HD,http://58.37.29.210:9001/rtp/233.18.204.68:5140
@@ -148,12 +150,12 @@ CCTV13SD,http://58.37.29.210:9001/rtp/233.18.204.32:5140
 CCTV14SD,http://58.37.29.210:9001/rtp/233.18.204.33:5140
 CCTV15SD,http://58.37.29.210:9001/rtp/233.18.204.34:5140
 CCTV17SD,http://58.37.29.210:9001/rtp/233.18.204.35:5140
+香港卫视,http://cctvtxyh5c.liveplay.myqcloud.com/cstv/xianggangweishi_2/index.m3u8
 CCTV1HD,http://106.111.244.12:58099/rtp/239.49.8.19:9614
 CCTV1HD,http://106.111.244.12:58099/rtp/239.49.0.207:8000
 CCTV1HD,http://106.111.244.12:58099/rtp/239.49.8.129:6000
 CCTV2HD,http://106.111.244.12:58099/rtp/239.49.8.50:9802
 CCTV2HD,http://106.111.244.12:58099/rtp/239.49.8.130:6000
-香港卫视,http://cctvtxyh5c.liveplay.myqcloud.com/cstv/xianggangweishi_2/index.m3u8
 CCTV3HD,http://106.111.244.12:58099/rtp/239.49.0.28:8000
 CCTV3HD,http://106.111.244.12:58099/rtp/239.49.8.74:8000
 CCTV4HD,http://106.111.244.12:58099/rtp/239.49.8.131:6000
@@ -257,11 +259,12 @@ CCTV-4中文国际,http://222.128.26.62:4001/rtp/239.3.1.105:8092
 CCTV-5体育,http://222.128.26.62:4001/rtp/239.3.1.173:8001
 CCTV-5+体育赛事,http://222.128.26.62:4001/rtp/239.3.1.130:8004
 CCTV-6电影,http://222.128.26.62:4001/rtp/239.3.1.174:8001
-CCTV-8电视剧,http://222.128.26.62:4001/rtp/239.3.1.175:8001
-CCTV-10科教,http://222.128.26.62:4001/rtp/239.3.1.63:8116
+CCTV-7国防军事,http://222.128.26.62:4001/rtp/239.3.1.61:8104
+CCTV-9纪录,http://222.128.26.62:4001/rtp/239.3.1.62:8112
 CCTV-15音乐,http://222.128.26.62:4001/rtp/239.3.1.153:8136
 CCTV-16奥林匹克,http://222.128.26.62:4001/rtp/239.3.1.184:8001
 CCTV-17农业农村,http://222.128.26.62:4001/rtp/239.3.1.151:8144
+CCTV-4美洲,http://222.128.26.62:4001/rtp/239.3.1.214:4220
 CCTV-1综合,http://221.219.104.6:1193/rtp/239.3.1.129:8008
 CCTV-3综艺,http://221.219.104.6:1193/rtp/239.3.1.172:8001
 CCTV-4中文国际,http://221.219.104.6:1193/rtp/239.3.1.105:8092
@@ -494,22 +497,24 @@ CCTV14,http://60.10.139.113:8801/hls/13/index.m3u8
 CCTV15,http://60.10.139.113:8801/hls/97/index.m3u8
 CCTV16,http://207.56.13.146:81/cdnlive/cctv16.m3u8
 CCTV17,http://60.10.139.113:8801/hls/98/index.m3u8
-CCTV1,http://74.91.26.218:82/live/cctv1hd.m3u8
-CCTV2,http://218.13.170.98:9901/tsfile/live/0002_1.m3u8
-CCTV4,https://global.cgtn.cicc.media.caton.cloud/master/cgtn-america.m3u8
-CCTV5,http://222.169.85.8:9901/tsfile/live/0005_1.m3u8
-CCTV5+,http://222.169.85.8:9901/tsfile/live/0116_1.m3u8
-CCTV6,http://222.169.85.8:9901/tsfile/live/0006_1.m3u8
-CCTV8,http://112.46.85.60:8009/hls/8/index.m3u8
-CCTV9,http://112.27.235.94:8000/hls/10/index.m3u8
-CCTV10,http://222.169.85.8:9901/tsfile/live/0010_1.m3u8
-CCTV11,http://112.27.235.94:8000/hls/12/index.m3u8
-CCTV12,http://112.46.85.60:8009/hls/507/index.m3u8
+CCTV1,http://123.163.114.168:9901/tsfile/live/0001_1.m3u8?key=txiptv&playlive=1&authid=0
+CCTV2,http://123.163.114.168:9901/tsfile/live/0002_1.m3u8?key=txiptv&playlive=1&authid=0
+CCTV3,http://123.163.114.168:9901/tsfile/live/0003_1.m3u8?key=txiptv&playlive=1&authid=0
+CCTV4,http://123.163.114.168:9901/tsfile/live/0004_1.m3u8?key=txiptv&playlive=1&authid=0
+CCTV5,http://123.163.114.168:9901/tsfile/live/0005_1.m3u8?key=txiptv&playlive=1&authid=0
+CCTV5+,http://cssbyd.imwork.net:8082/hls/6/index.m3u8
+CCTV6,http://123.163.114.168:9901/tsfile/live/0006_1.m3u8?key=txiptv&playlive=1&authid=0
+CCTV7,http://123.163.114.168:9901/tsfile/live/0007_1.m3u8?key=txiptv&playlive=1&authid=0
+CCTV8,http://123.163.114.168:9901/tsfile/live/0008_1.m3u8?key=txiptv&playlive=1&authid=0
+CCTV9,http://123.163.114.168:9901/tsfile/live/0009_1.m3u8?key=txiptv&playlive=1&authid=0
+CCTV10,http://123.163.114.168:9901/tsfile/live/0010_1.m3u8?key=txiptv&playlive=1&authid=0
+CCTV11,http://123.163.114.168:9901/tsfile/live/0011_1.m3u8?key=txiptv&playlive=1&authid=0
+CCTV12,http://123.163.114.168:9901/tsfile/live/0012_1.m3u8?key=txiptv&playlive=1&authid=0
 CCTV13,http://ali-m-l.cztv.com/channels/lantian/channel21/1080p.m3u8
-CCTV15,http://gmxw.7766.org:808/hls/102/index.m3u8
+CCTV14,http://123.130.84.106:8154/tsfile/live/0014_1.m3u8
+CCTV15,http://112.27.235.94:8000/hls/16/index.m3u8
 CCTV16,http://drive.mxmy.net:8888/udp/239.3.1.184:8001
-CCTV17,http://123.130.84.106:8154/tsfile/live/0019_1.m3u8
-CCTV世界地理,https://shcm-stream-cf1.stream.264788.xyz/cms001/ch00000090990000001620/index.m3u8?streamid=8a034b40397504e25b3775c772237996&streamkey=01vY5fRxC8VyKg4oq30vfikHXTCAKySLP29l6OG91kQlzDttHgzNLkUw5kivm3PfNsVHJv5FgdsPBYFYI2IWpt7tfRCuFHqLT2pvX67ubMds8jl2DHtvOh0&token=1775754349-4f33f4f84a4abeba-0-91687dc8c9325092efa1d00f330d2710
+CCTV17,http://drive.mxmy.net:8888/udp/239.3.1.151:8144
 CCTV央视台球,https://epg.pw/stream/ca9c1cd4b97fb824cedd7fedfd0c7a950afdd7f00751cfbb7c2d89831d7746a5.m3u8
 CCTV第一剧场,https://epg.pw/stream/6d7bf281e3d739806a73f5373acaa6e01988ec9739f5ac1355ce54b47a928472.m3u8
 CCTV风云足球,https://epg.pw/stream/ac8062ec9484078061d3bef507c15a423ac57ae4144e3fcc4b0a198dd420f911.m3u8
