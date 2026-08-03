@@ -91,7 +91,6 @@ jobs:
         parse_and_append "https://raw.githubusercontent.com/suxuang/myIPTV/refs/heads/main/ipv6.m3u" "Su6"
         parse_and_append "http://iptv.4666888.xyz/FYTV.m3u" "aptv4666888"
 
-        
         # ==========================================
         # 第二步：精准去重
         # ==========================================
