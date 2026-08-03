@@ -249,8 +249,10 @@ jobs:
         wait
                 
         parse_and_append "https://raw.githubusercontent.com/gjx0753/iptvz/main/iptv.txt" "gjx0753_iptv" &
-        
         parse_and_append "https://raw.githubusercontent.com/q1017673817/iptvz/main/zubo_all.txt" "q1017673817_zubo2" &
+        parse_and_append "https://raw.githubusercontent.com/gjx0753/iptvz/main/iptv.txt" "gjx0753_iptv" &
+        parse_and_append "https://raw.githubusercontent.com/q1017673817/iptvz/main/zubo_all.txt" "q1017673817_zubo2" &
+        wait
 
         parse_and_append "http://iptv.4666888.xyz/FYTV.m3u" "aptv4666888" &
         wait
