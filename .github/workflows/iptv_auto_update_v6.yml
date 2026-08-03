@@ -1,8 +1,9 @@
 name: IPTV Auto Update ip_v6(Fusion Edition)
-on:
+on: 
   schedule:
     - cron: '0 */6 * * *'
   workflow_dispatch:
+
 permissions:
   contents: write
 
@@ -10,476 +11,188 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      
-    - name: Run
-      run: |
-        set -euo pipefail
-        
-        echo "========================================="
-        echo "Starting Fetch and Validate Process..."
-        echo "Time: $(date '+%Y-%m-%d %H:%M:%S')"
-        echo "========================================="
-        
-        # 清理并初始化
-        rm -f live_with_group.txt && touch live_with_group.txt
-        rm -f fetch_errors.log
-        
-        # ==========================================
-        # 第一步：智能抓取与格式统一（优化版）
-        # ==========================================
-        parse_and_append() {
-          local url="$1"
-          local name="$2"
-          local retry_count=0
-          local max_retries=2
-          
-          echo "[INFO] Fetching $name from $url"
-          
-          while [ $retry_count -lt $max_retries ]; do
-            # 使用更稳健的抓取方式
-            local http_code=$(curl -sL \
-              --connect-timeout 10 \
-              --max-time 30 \
-              -k \
-              -w "%{http_code}" \
-              -o "/tmp/${name}_raw.txt" \
-              "$url" 2>/dev/null) || http_code="000"
-            
-            # 检查HTTP状态码
-            if echo "$http_code" | grep -qE "^[23][0-9]{2}$"; then
-              break
-            else
-              retry_count=$((retry_count + 1))
-              [ $retry_count -lt $max_retries ] && sleep 2
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run
+        run: |
+          echo "Starting Fetch and Validate Process..."
+          rm -f live_with_group.txt && touch live_with_group.txt
+
+          # ==========================================
+          # 第一步：智能抓取与格式统一（融合代码2的优点）
+          # ==========================================
+          parse_and_append() {
+            local url="$1"
+            local name="$2"
+            echo "Fetching $name..."
+
+            # 容错抓取：防止单个源失败退出，增加超时时间
+            local raw_content=$(curl -sL --connect-timeout 15 --max-time 30 -k "$url" 2>/dev/null) || true
+            if [ -z "$raw_content" ]; then
+              echo "Warning: Failed to fetch or empty response from $name"
+              return
             fi
-          done
-          
-          # 验证文件是否存在且非空
-          if [ ! -s "/tmp/${name}_raw.txt" ]; then
-            echo "[ERROR] Failed to fetch or empty response from $name (HTTP: $http_code)" | tee -a fetch_errors.log
-            return 1
-          fi
-          
-          local raw_content=$(cat "/tmp/${name}_raw.txt")
-          
-          # 智能识别：检测是否包含 M3U 标识
-          if echo "$raw_content" | grep -q "#EXTINF"; then
-            echo "[INFO] Detected M3U format from $name, converting..."
-            
-            # 使用更兼容的 AWK 解析（支持跨行和特殊字符）
-            echo "$raw_content" | awk '
-            BEGIN {
-              info = ""
-              group = ""
-              name = ""
-            }
-            
-            # 处理 #EXTINF 行（可能跨多行）
-            /^#EXTINF:/ {
-              # 如果之前有未处理的，先输出
-              if (info != "" && url != "") {
-                print name "," url "," group
-              }
-              
-              # 重置变量
-              info = $0
-              group = ""
-              name = ""
-              url = ""
-              
-              # 提取 group-title（兼容 emoji 和中文）
-              if (match(info, /group-title="[^"]*"/)) {
-                group = substr(info, RSTART + 12, RLENGTH - 12)
-              }
-              
-              # 处理 #EXTGRP（备用分组标识）
-              next
-            }
-            
-            /^#EXTGRP:/ {
-              if (group == "") {
-                group = substr($0, 8)
-                gsub(/^[ \t]+|[ \t]+$/, "", group)
-              }
-              next
-            }
-            
-            # 处理 URL 行
-            /^https?:\/\// {
-              url = $0
-              gsub(/^[ \t]+|[ \t]+$/, "", url)
-              
-              # 提取频道名（最后一个逗号后面的内容）
-              if (match(info, /,[^,]+$/)) {
-                name = substr(info, RSTART + 1, RLENGTH - 1)
-                gsub(/^[ \t]+|[ \t]+$/, "", name)
-                # 移除引号
-                gsub(/["'\''']/, "", name)
-              }
-              
-              # 如果没有提取到名称，使用 URL 的最后部分
-              if (name == "") {
-                n = split(url, parts, "/")
-                name = parts[n]
-                gsub(/\?.*$/, "", name)
-              }
-              
-              # 输出格式：频道名,URL,分组名
-              if (name != "" && url != "") {
-                print name "," url "," group
-              }
-              
-              # 重置
-              info = ""
-              group = ""
-              name = ""
-              url = ""
-              next
-            }
-            
-            # 处理 RTMP 等其他协议
-            /^(rtmp|rtsp):/ {
-              url = $0
-              gsub(/^[ \t]+|[ \t]+$/, "", url)
-              
-              if (match(info, /,[^,]+$/)) {
-                name = substr(info, RSTART + 1, RLENGTH - 1)
-                gsub(/^[ \t]+|[ \t]+$/, "", name)
-                gsub(/["'\''']/, "", name)
-              }
-              
-              if (name != "" && url != "") {
-                print name "," url "," group
-              }
-              
-              info = ""
-              group = ""
-              name = ""
-              url = ""
-            }
-            
-            END {
-              # 处理最后一条记录
-              if (info != "" && url != "") {
-                print name "," url "," group
-              }
-            }
-            ' >> live_with_group.txt
-            
-          else
-            echo "[INFO] Detected TXT format from $name, appending directly..."
-            
-            # TXT 格式处理（兼容多种分隔符）
-            echo "$raw_content" | awk '
-            {
-              # 跳过空行和注释
-              if (NF == 0 || /^#/) next
-              
-              # 尝试识别格式
-              if ($0 ~ /,/) {
-                # CSV 格式：频道名,URL,分组
-                n = split($0, parts, ",")
-                if (n >= 2) {
-                  name = parts[1]
-                  url = parts[2]
-                  group = (n >= 3) ? parts[3] : ""
+
+            # 智能识别：检测是否包含 M3U 标识
+            if echo "$raw_content" | grep -q "#EXTINF"; then
+              echo "Detected M3U format, converting with groups..."
+              # 提取频道名、URL和分组，输出格式：频道名,URL,分组名
+              echo "$raw_content" | awk '
+                /#EXTINF/ {
+                  info = $0
+                  group = ""
+                  if (match(info, /group-title="([^"]+)"/, arr)) {
+                    group = arr[1]
+                  }
+                  n = split(info, arr, ",")
+                  name = arr[n]
                   gsub(/^[ \t]+|[ \t]+$/, "", name)
-                  gsub(/^[ \t]+|[ \t]+$/, "", url)
-                  gsub(/^[ \t]+|[ \t]+$/, "", group)
-                  print name "," url "," group
+                  next
                 }
-              } else if ($0 ~ /^https?:\/\//) {
-                # 纯 URL 格式：使用默认名称
-                url = $0
-                gsub(/^[ \t]+|[ \t]+$/, "", url)
-                n = split(url, parts, "/")
-                name = parts[n]
-                gsub(/\?.*$/, "", name)
-                print name "," url ","
-              }
-            }
-            ' >> live_with_group.txt
-          fi
-          
-          echo "[INFO] Successfully processed $name"
-          return 0
-        }
-
-        # ==========================================
-        # 批量抓取源（按优先级排序）
-        # ==========================================
-        echo ""
-        echo "Step 1: Fetching sources..."
-        
-        # 高优先级源（IPv6）
-        parse_and_append "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/ipv6/result.m3u" "G6_IPv6" &
-        
-        # 高优先级源（IPv4）
-        parse_and_append "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/ipv4/result.m3u" "G4_IPv4" &
-        
-        # Fanmingming 源（稳定）
-        parse_and_append "https://live.fanmingming.cn/tv/m3u/ipv6.m3u" "Fan_IPv6" &
-        
-        # 其他源（限制并发数）
-        parse_and_append "https://raw.githubusercontent.com/jn950/live/main/tv/pllive.txt" "Jn" &
-        wait  # 等待前4个完成
-        
-        parse_and_append "https://raw.githubusercontent.com/YueChan/Live/main/GNTV.m3u" "YueG" &
-        parse_and_append "https://raw.githubusercontent.com/YueChan/Live/main/Global.m3u" "YueGl" &
-        parse_and_append "https://raw.githubusercontent.com/YueChan/Live/main/Hunan.txt" "YueH" &
-        parse_and_append "https://raw.githubusercontent.com/YueChan/Live/main/IPTV.m3u" "YueI" &
-        wait
-        
-        parse_and_append "https://raw.githubusercontent.com/YueChan/Live/main/Radio.m3u" "YueR" &
-        parse_and_append "https://tv.iill.top/m3u/Gather" "Yan" &
-        parse_and_append "https://live.zbds.org/tv/iptv6.m3u" "Zb6" &
-        parse_and_append "https://live.zbds.org/tv/iptv4.m3u" "Zb4" &
-        wait
-        
-        parse_and_append "https://raw.githubusercontent.com/Kimentanm/aptv/master/m3u/iptv.m3u" "Kim" &
-        parse_and_append "https://raw.githubusercontent.com/BurningC4/Chinese-IPTV/master/TV-IPV4.m3u" "Burn" &
-        parse_and_append "https://raw.githubusercontent.com/zwc456baby/iptv_alive/refs/heads/master/live.m3u" "Zwc" &
-        wait
-        
-        parse_and_append "https://raw.githubusercontent.com/hujingguang/ChinaIPTV/main/cnTV_AutoUpdate.m3u8" "Huj" &
-        parse_and_append "https://raw.githubusercontent.com/suxuang/myIPTV/refs/heads/main/ipv4.m3u" "Su4" &
-        parse_and_append "https://raw.githubusercontent.com/suxuang/myIPTV/refs/heads/main/ipv6.m3u" "Su6" &
-        wait
-                
-        parse_and_append "https://raw.githubusercontent.com/gjx0753/iptvz/main/iptv.txt" "gjx0753_iptv" &
-        parse_and_append "https://raw.githubusercontent.com/q1017673817/iptvz/main/zubo_all.txt" "q1017673817_zubo2" &
-        parse_and_append "https://raw.githubusercontent.com/gjx0753/iptvz/main/iptv.txt" "gjx0753_iptv" &
-        parse_and_append "https://raw.githubusercontent.com/q1017673817/iptvz/main/zubo_all.txt" "q1017673817_zubo2" &
-        wait
-
-        parse_and_append "http://iptv.4666888.xyz/FYTV.m3u" "aptv4666888" &
-        wait
-        
-        # 等待所有后台任务完成
-        wait
-        
-        echo ""
-        echo "[INFO] Fetch completed. Total lines: $(wc -l < live_with_group.txt)"
-        
-        # ==========================================
-        # 第二步：精准去重（URL级别）
-        # ==========================================
-        echo ""
-        echo "Step 2: Deduplicating..."
-        
-        if [ -s live_with_group.txt ]; then
-          # 按 URL 去重（保留第一次出现的记录）
-          awk -F',' '!seen[$2]++' live_with_group.txt > live_dedup.txt
-          
-          dedup_count=$(wc -l < live_dedup.txt)
-          original_count=$(wc -l < live_with_group.txt)
-          removed_count=$((original_count - dedup_count))
-          
-          echo "[INFO] Removed $removed_count duplicate URLs"
-          echo "[INFO] Remaining entries: $dedup_count"
-        else
-          echo "[ERROR] No data fetched! Check fetch_errors.log"
-          exit 1
-        fi
-
-        # ==========================================
-        # 第三步：智能验证（防误杀优化）
-        # ==========================================
-        echo ""
-        echo "Step 3: Validating links (max 10 concurrent)..."
-        
-        rm -rf valid_parts
-        mkdir -p valid_parts
-        
-        # 验证计数器
-        total_count=0
-        valid_count=0
-        invalid_count=0
-        
-        check_line() {
-          local line="$1"
-          local url=$(echo "$line" | cut -d',' -f2)
-          local name=$(echo "$line" | cut -d',' -f1)
-          
-          if [ -z "$url" ]; then
-            return 1
-          fi
-          
-          # 随机延时（0.5-2秒），避免被识别为爬虫
-          local delay=$(awk 'BEGIN{srand(); printf "%.1f", 0.5 + rand() * 1.5}')
-          sleep "$delay"
-          
-          # 伪装请求头（随机UA）
-          local ua_list=(
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0"
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15"
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-          )
-          local ua="${ua_list[$((RANDOM % ${#ua_list[@]}))]}"
-          
-          local referer=$(echo "$url" | awk -F/ '{print $1 "//" $3}')
-          
-          # 第一次验证（GET请求前1KB）
-          local http_code=$(curl -s -o /dev/null -w "%{http_code}" \
-            -A "$ua" \
-            -e "$referer" \
-            --connect-timeout 5 \
-            --max-time 10 \
-            -r 0-1024 \
-            -H "Accept: */*" \
-            -H "Accept-Language: zh-CN,zh;q=0.9,en;q=0.8" \
-            -k "$url" 2>/dev/null) || http_code="000"
-          
-          # 如果失败，尝试第二次（不使用 Range）
-          if ! echo "$http_code" | grep -qE "^[23][0-9]{2}$"; then
-            sleep 1
-            http_code=$(curl -s -o /dev/null -w "%{http_code}" \
-              -A "$ua" \
-              -e "$referer" \
-              --connect-timeout 5 \
-              --max-time 10 \
-              -H "Accept: */*" \
-              -H "Accept-Language: zh-CN,zh;q=0.9,en;q=0.8" \
-              -k "$url" 2>/dev/null) || http_code="000"
-          fi
-          
-          # 第三次尝试（HEAD请求）
-          if ! echo "$http_code" | grep -qE "^[23][0-9]{2}$"; then
-            sleep 1
-            http_code=$(curl -s -o /dev/null -w "%{http_code}" \
-              -A "$ua" \
-              -e "$referer" \
-              --connect-timeout 5 \
-              --max-time 10 \
-              -I \
-              -k "$url" 2>/dev/null) || http_code="000"
-          fi
-          
-          # 判断有效性（2xx 和 3xx 都算有效）
-          if echo "$http_code" | grep -qE "^[23][0-9]{2}$"; then
-            echo "$line" >> "valid_parts/$BASHPID"
-            echo "[VALID] $name ($http_code)"
-            return 0
-          else
-            echo "[INVALID] $name ($http_code) - $url"
-            return 1
-          fi
-        }
-        
-        # 并发执行验证（降低到10个并发）
-        while IFS= read -r line; do
-          [ -z "$line" ] && continue
-          
-          total_count=$((total_count + 1))
-          
-          check_line "$line" &
-          
-          # 限制并发数为10
-          if [ $(jobs -r | wc -l) -ge 10 ]; then
-            wait -n
-          fi
-        done < live_dedup.txt
-        
-        # 等待所有验证完成
-        wait
-        
-        # 合并验证结果
-        if ls valid_parts/* >/dev/null 2>&1; then
-          cat valid_parts/* > live_valid.txt
-          valid_count=$(wc -l < live_valid.txt)
-        else
-          echo "[WARN] No valid links found!"
-          : > live_valid.txt
-        fi
-        
-        invalid_count=$((total_count - valid_count))
-        
-        echo ""
-        echo "========================================="
-        echo "Validation Summary:"
-        echo "  Total checked: $total_count"
-        echo "  Valid: $valid_count"
-        echo "  Invalid: $invalid_count"
-        echo "  Success rate: $(awk "BEGIN {printf \"%.1f\", ($valid_count / $total_count) * 100}")%"
-        echo "========================================="
-
-        # ==========================================
-        # 第四步：生成分组与最终输出
-        # ==========================================
-        echo ""
-        echo "Step 4: Generating final output..."
-        
-        # 生成带分组的 live.txt
-        awk '
-        BEGIN {
-          FS=","
-          OFS=","
-        }
-        {
-          name=$1
-          url=$2
-          group=$3
-          
-          # 清理字段
-          gsub(/^[ \t]+|[ \t]+$/, "", name)
-          gsub(/^[ \t]+|[ \t]+$/, "", url)
-          gsub(/^[ \t]+|[ \t]+$/, "", group)
-          
-          # 如果分组存在且还没输出过该分组头，则输出
-          if (group != "" && !printed[group]++) {
-            print group ",#genre#"
+                /#EXTGRP/ {
+                  group = $0
+                  sub(/^#EXTGRP:/, "", group)
+                  gsub(/^[ \t]+|[ \t]+$/, "", group)
+                  next
+                }
+                /^http/ {
+                  if (info != "") {
+                    print name "," $0 "," group
+                  }
+                  info = ""
+                  group = ""
+                }
+              ' >> live_with_group.txt
+            else
+              echo "Detected TXT format, appending directly..."
+              # 如果是TXT格式，补齐第三列(分组)为空，保持格式统一
+              echo "$raw_content" | awk -F',' '/^http/{print ","$0","} !/^http/ && NF>1 {print $1","$2","}' >> live_with_group.txt
+            fi
           }
-          
-          print name, url
-        }
-        ' live_valid.txt > live.txt
-        
-        # 生成分类文件
-        grep -i "CCTV" live.txt > CCTV.txt 2>/dev/null || : > CCTV.txt
-        grep -i "卫视" live.txt > Satellite.txt 2>/dev/null || : > Satellite.txt
-        
-        # 备份成功结果
-        if [ -s live.txt ]; then
-          cp live.txt live_backup_$(date +%Y%m%d_%H%M%S).txt
-          echo "[INFO] Backup created: live_backup_$(date +%Y%m%d_%H%M%S).txt"
-        fi
-        
-        echo ""
-        echo "Final Output:"
-        echo "  live.txt: $(wc -l < live.txt) lines"
-        echo "  CCTV.txt: $(wc -l < CCTV.txt) lines"
-        echo "  Satellite.txt: $(wc -l < Satellite.txt) lines"
-        
-        # 检查是否有错误日志
-        if [ -s fetch_errors.log ]; then
-          echo ""
-          echo "Fetch Errors:"
-          cat fetch_errors.log
-        fi
 
-    - name: Commit
-      run: |
-        git config --global user.name "Bot"
-        git config --global user.email "bot@github.com"
-        
-        # 添加所有输出文件
-        git add -f live.txt CCTV.txt Satellite.txt live_backup_*.txt 2>/dev/null || true
-        git add -f fetch_errors.log 2>/dev/null || true
-        
-        # 提交
-        if ! git diff --staged --quiet; then
-          git commit -m "Auto Update - $(date '+%Y-%m-%d %H:%M:%S') ($(wc -l < live.txt) channels)"
+          # 开始抓取 (即使某一个连不上，也不会影响其他源)
+          parse_and_append "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/ipv6/result.m3u" "G6"
+          parse_and_append "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/ipv4/result.m3u" "G4"
+          parse_and_append "https://live.fanmingming.cn/tv/m3u/ipv6.m3u" "Fan"
+          parse_and_append "https://raw.githubusercontent.com/jn950/live/main/tv/pllive.txt" "Jn"
+          parse_and_append "https://raw.githubusercontent.com/YueChan/Live/main/GNTV.m3u" "YueG"
+          parse_and_append "https://raw.githubusercontent.com/YueChan/Live/main/Global.m3u" "YueGl"
+          parse_and_append "https://raw.githubusercontent.com/YueChan/Live/main/Hunan.txt" "YueH"
+          parse_and_append "https://raw.githubusercontent.com/YueChan/Live/main/IPTV.m3u" "YueI"
+          parse_and_append "https://raw.githubusercontent.com/YueChan/Live/main/Radio.m3u" "YueR"
+          parse_and_append "https://tv.iill.top/m3u/Gather" "Yan"
+          parse_and_append "https://live.zbds.org/tv/iptv6.m3u" "Zb6"
+          parse_and_append "https://live.zbds.org/tv/iptv4.m3u" "Zb4"
+          parse_and_append "https://raw.githubusercontent.com/Kimentanm/aptv/master/m3u/iptv.m3u" "Kim"
+          parse_and_append "https://raw.githubusercontent.com/BurningC4/Chinese-IPTV/master/TV-IPV4.m3u" "Burn"
+          parse_and_append "https://raw.githubusercontent.com/zwc456baby/iptv_alive/refs/heads/master/live.m3u" "Zwc"
+          parse_and_append "https://raw.githubusercontent.com/hujingguang/ChinaIPTV/main/cnTV_AutoUpdate.m3u8" "Huj"
+          parse_and_append "https://raw.githubusercontent.com/suxuang/myIPTV/refs/heads/main/ipv4.m3u" "Su4"
+          parse_and_append "https://raw.githubusercontent.com/suxuang/myIPTV/refs/heads/main/ipv6.m3u" "Su6"
+          parse_and_append "http://iptv.4666888.xyz/FYTV.m3u" "aptv4666888"
+          # 新增的2个线路
+          parse_and_append "https://raw.githubusercontent.com/gjx0753/iptvz/main/iptv.txt" "Gjx"
+          parse_and_append "https://raw.githubusercontent.com/q1017673817/iptvz/main/zubo_all.txt" "Q10"
+
+          # ==========================================
+          # 第二步：精准去重
+          # ==========================================
+          echo "Deduplicating..."
+          if [ -s live_with_group.txt ]; then
+            # 清理空行并按行去重
+            awk 'NF && !seen[$0]++' live_with_group.txt > live_dedup.txt
+          else
+            : > live_dedup.txt
+          fi
+
+          # ==========================================
+          # 第三步：防误杀并发验证（融合代码1的优点）
+          # ==========================================
+          echo "Validating links (15 concurrent)..."
+          rm -rf valid_parts
+          mkdir -p valid_parts
+
+          check_line() {
+            local line="$1"
+            # 提取URL (第二列)
+            local url=$(echo "$line" | cut -d',' -f2)
+
+            if [ -n "$url" ]; then
+              # 1. 伪装请求头
+              local ua="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+              local referer=$(echo "$url" | awk -F/ '{print $1 "//" $3}')
+
+              # 2. 第一次验证 (用 Range 请求替代 HEAD，防误杀)
+              local http_code=$(curl -s -o /dev/null -w "%{http_code}" \
+                -A "$ua" \
+                -e "$referer" \
+                --connect-timeout 5 \
+                --max-time 10 \
+                -r 0-1024 \
+                -k "$url" 2>/dev/null)
+
+              # 3. 失败重试机制
+              if ! echo "$http_code" | grep -qE "^[23]"; then
+                sleep 1
+                http_code=$(curl -s -o /dev/null -w "%{http_code}" \
+                  -A "$ua" \
+                  -e "$referer" \
+                  --connect-timeout 5 \
+                  --max-time 10 \
+                  -r 0-1024 \
+                  -k "$url" 2>/dev/null)
+              fi
+
+              # 4. 判断有效性
+              if echo "$http_code" | grep -qE "^[23]"; then
+                echo "$line" >> "valid_parts/$BASHPID"
+              fi
+            fi
+          }
+
+          # 并发执行验证，控制在15个进程防止网络拥堵
+          while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            check_line "$line" &
+            if [ $(jobs -r | wc -l) -ge 15 ]; then
+              wait
+            fi
+          done < live_dedup.txt
+          wait
+
+          # 合并验证通过的内容
+          cat valid_parts/* > live_valid.txt 2>/dev/null || : > live_valid.txt
+
+          # ==========================================
+          # 第四步：生成分组与最终输出
+          # ==========================================
+          echo "Regenerating groups..."
+          # 读取验证后的数据，按顺序生成分组头
+          awk '
+            BEGIN { FS="," }
+            {
+              name=$1; url=$2; group=$3
+              # 如果分组存在且还没输出过该分组头，则输出
+              if (group != "" && !printed[group]++) {
+                print group ",#genre#"
+              }
+              print name "," url
+            }
+          ' live_valid.txt > live.txt
+
+          # ==========================================
+          # 恢复原有的分类逻辑
+          # ==========================================
+          grep -i "CCTV" live.txt > CCTV.txt 2>/dev/null || : > CCTV.txt
+          grep -i "卫视" live.txt > Satellite.txt 2>/dev/null || : > Satellite.txt
+
+          echo "Total lines: $(wc -l < live.txt)"
+
+      - name: Commit
+        run: |
+          git config --global user.name "Bot"
+          git config --global user.email "bot@github.com"
+          git add live.txt CCTV.txt Satellite.txt
+          git diff --staged --quiet || git commit -m "Auto Update (Fusion Optimized)"
           git push
-          echo "[SUCCESS] Changes pushed to repository"
-        else
-          echo "[INFO] No changes to commit"
-        fi
-
-    - name: Cleanup old backups
-      run: |
-        # 只保留最近7天的备份
-        find . -name "live_backup_*.txt" -type f -mtime +7 -delete 2>/dev/null || true
-        echo "[INFO] Old backups cleaned up"
