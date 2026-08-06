@@ -1,7 +1,7 @@
 name: IPTV Auto Update ip_v6(Fusion Edition)
 on: 
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '0 */12 * * *'
   workflow_dispatch:
 
 permissions:
@@ -91,7 +91,7 @@ jobs:
           parse_and_append "https://raw.githubusercontent.com/suxuang/myIPTV/refs/heads/main/ipv4.m3u" "Su4"
           parse_and_append "https://raw.githubusercontent.com/suxuang/myIPTV/refs/heads/main/ipv6.m3u" "Su6"
           parse_and_append "http://iptv.4666888.xyz/FYTV.m3u" "aptv4666888"
-          # 新增的2个线路
+          # 新增的3个线路
           parse_and_append "https://raw.githubusercontent.com/gjx0753/iptvz/main/iptv.txt" "Gjx"
           parse_and_append "https://raw.githubusercontent.com/q1017673817/iptvz/main/zubo_all.txt" "Q10"
           parse_and_append "https://gh-proxy.org/https://raw.githubusercontent.com/tianze889/tvds/refs/heads/main/fyzb.txt" "tianze890"
