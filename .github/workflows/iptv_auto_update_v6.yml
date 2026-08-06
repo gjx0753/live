@@ -82,8 +82,8 @@ jobs:
           parse_and_append "https://raw.githubusercontent.com/YueChan/Live/main/IPTV.m3u" "YueI"
           parse_and_append "https://raw.githubusercontent.com/YueChan/Live/main/Radio.m3u" "YueR"
           parse_and_append "https://tv.iill.top/m3u/Gather" "Yan"
-          parse_and_append "https://live.zbds.org/tv/iptv6.m3u" "Zb6"
-          parse_and_append "https://live.zbds.org/tv/iptv4.m3u" "Zb4"
+          parse_and_append "https://live.zbds.org/tv/iptv6.txt" "Zb6"
+          parse_and_append "https://live.zbds.org/tv/iptv4.txt" "Zb4"
           parse_and_append "https://raw.githubusercontent.com/Kimentanm/aptv/master/m3u/iptv.m3u" "Kim"
           parse_and_append "https://raw.githubusercontent.com/BurningC4/Chinese-IPTV/master/TV-IPV4.m3u" "Burn"
           parse_and_append "https://raw.githubusercontent.com/zwc456baby/iptv_alive/refs/heads/master/live.m3u" "Zwc"
@@ -94,7 +94,9 @@ jobs:
           # 新增的2个线路
           parse_and_append "https://raw.githubusercontent.com/gjx0753/iptvz/main/iptv.txt" "Gjx"
           parse_and_append "https://raw.githubusercontent.com/q1017673817/iptvz/main/zubo_all.txt" "Q10"
+          parse_and_append "https://gh-proxy.org/https://raw.githubusercontent.com/tianze889/tvds/refs/heads/main/fyzb.txt" "tianze890"
 
+          
           # ==========================================
           # 第二步：精准去重
           # ==========================================
